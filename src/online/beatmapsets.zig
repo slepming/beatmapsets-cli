@@ -46,6 +46,9 @@ pub const BeatmapsetSearch = struct {
     pub fn request(client: *std.http.Client, token: []const u8, allocator: std.mem.Allocator) !BeatmapsetSearch {
         const path = "https://osu.ppy.sh/api/v2/beatmapsets/search";
         std.log.debug("request {s} sent", .{path});
+        var authorization_token: [256]u8 = undefined;
+
+        _ = try std.fmt.bufPrint(&authorization_token, "Bearer {s}", .{token});
         const headers = &[_]std.http.Header{
             .{
                 .name = "Accept",
@@ -57,7 +60,7 @@ pub const BeatmapsetSearch = struct {
             },
             .{
                 .name = "Authorization",
-                .value = token,
+                .value = &authorization_token,
             },
         };
 
