@@ -8,15 +8,11 @@ pub fn main(init: std.process.Init) !void {
     var arena: std.heap.ArenaAllocator = .init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
+    var args_iter = try init.minimal.args.iterateAllocator(allocator);
+    defer args_iter.deinit();
 
-    var client = std.http.Client{
-        .allocator = allocator,
-        .io = init.io,
-    };
-    defer client.deinit();
-
-    const beatmapset = try api.beatmapsets.BeatmapsetSearch.request(&client, "hwllo", allocator);
-    std.log.debug("{}", .{
-        beatmapset.total,
-    });
+    _ = args_iter.next();
+    const program_id = try std.fmt.parseInt(u64, args_iter.next().?, 10);
+    _ = try api.auth_client(init.io, allocator, program_id, 3000, "public");
+    std.log.debug("code received", .{});
 }
