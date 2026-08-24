@@ -13,6 +13,7 @@ pub fn main(init: std.process.Init) !void {
 
     _ = args_iter.next();
     const program_id = try std.fmt.parseInt(u64, args_iter.next().?, 10);
-    _ = try api.auth_client(init.io, allocator, program_id, 3000, "public");
+    const client_secret = args_iter.next().?;
+    _ = try api.auth_client(init.io, allocator, client_secret, program_id, 3000, "public");
     std.log.debug("code received", .{});
 }
