@@ -15,6 +15,7 @@ const AuthHandler = struct {
     io: std.Io,
 };
 
+/// Token structure from osu API v2
 pub const Token = struct { token_type: []const u8, expires_in: u32, access_token: []const u8, refresh_token: []const u8 };
 
 pub fn auth_client(io: std.Io, allocator: std.mem.Allocator, client_secret: []const u8, client_id: u64, port: u16, scope: []const u8) !Token {
@@ -26,7 +27,7 @@ pub fn auth_client(io: std.Io, allocator: std.mem.Allocator, client_secret: []co
     var auth = AuthHandler{ .allocator = allocator, .client_id = client_id, .port = port, .client_secret = client_secret, .io = io };
 
     var server_i = try httpz.Server(*AuthHandler).init(io, allocator, .{
-        .address = .localhost(3000),
+        .address = .localhost(port),
     }, &auth);
     defer {
         // clean shutdown, finishes serving any live requests
@@ -79,7 +80,7 @@ fn listen(h: *AuthHandler, req: *httpz.Request, res: *httpz.Response) !void {
     const exchange_code_uri = try std.fmt.bufPrint(&exchange_code_uri_buffer, "{s}oauth/token", .{URI});
     const payload = try std.fmt.bufPrint(
         &payload_buffer,
-        "client_id={d}&client_secret={s}&code={s}&grant_type=authorization_code&redirect_uri={s}:{d}",
+        "client_id={d}&client_secret={s}&code={s}&grant_type=authorization_code&redirect_uri=http://{s}:{d}",
         .{ h.client_id, h.client_secret, code, localhost, h.port },
     );
 
