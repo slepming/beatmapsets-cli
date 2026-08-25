@@ -26,6 +26,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const zli = b.dependency("zli", .{ .target = target, .optimize = optimize });
+
     // This creates a module, which represents a collection of source files alongside
     // some compilation options, such as optimization mode and linked system libraries.
     // Zig modules are the preferred way of making Zig code available to consumers.
@@ -151,6 +153,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_exe_tests.step);
 
     exe.root_module.addImport("httpz", httpz.module("httpz"));
+    exe.root_module.addImport("zli", zli.module("zli"));
 
     // Just like flags, top level steps are also listed in the `--help` menu.
     //

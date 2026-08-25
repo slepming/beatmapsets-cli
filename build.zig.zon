@@ -36,6 +36,10 @@
             .url = "git+https://github.com/karlseguin/http.zig?ref=master#5432c5b4fbf10768ba0a6ca3481055ac2964fd9b",
             .hash = "httpz-0.0.0-PNVzrIUDCQBpEYYfWjNoAZD8sIe_KbuIMt6c7hQ63NdJ",
         },
+        .zli = .{
+            .url = "https://github.com/xcaeser/zli/archive/v5.1.3.tar.gz",
+            .hash = "zli-5.1.3-LeUjpvkHAQCYj3r-wgQ2r1Gdkk-S61EFABfsXHP5Q4CH",
+        },
     },
     .paths = .{
         "build.zig",
