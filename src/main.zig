@@ -12,9 +12,6 @@ pub fn main(init: std.process.Init) !void {
     defer arena.deinit();
     const allocator = arena.allocator();
 
-    var client_secret: []const u8 = undefined;
-    var client_id: u64 = undefined;
-
     var wbuf: [1024]u8 = undefined;
     var stdout_writer = Io.File.Writer.init(.stdout(), io, &wbuf);
     const stdout = &stdout_writer.interface;
@@ -31,6 +28,32 @@ pub fn main(init: std.process.Init) !void {
         .writer = stdout,
     };
 
-    _ = try api.auth_client(init.io, allocator, client_secret, client_id, 3000, "public");
-    std.log.debug("received code", .{});
+    const zli_root = try zli.Command.init(init_options, .{
+        .name = "beatmapset-cli",
+        .description = "osu! CLI application for listing/search/download beatmapsets",
+    }, showHelp);
+
+    const get_beatmapsets_command = try zli.Command.init(init_options, .{ .name = "get-beatmapsets", .shortcut = "gb", .description = "Get beatmapsets from osu! api v2 with oauth." }, getBeatmapsets);
+
+    try get_beatmapsets_command.addPositionalArg(.{
+        .required = true,
+        .description = "Search query.",
+        .name = "Query",
+    });
+
+    try zli_root.addCommand(get_beatmapsets_command);
+
+    // _ = try api.auth_client(init.io, allocator, "", 53, 3000, "public");
+    // std.log.debug("received code", .{});
+    var args_iter = init.minimal.args.iterate();
+    zli_root.runAndExit(&args_iter, .{});
+}
+
+fn showHelp(ctx: zli.CommandContext) !void {
+    try ctx.command.printHelp();
+}
+
+fn getBeatmapsets(ctx: zli.CommandContext) !void {
+    ctx.positional_args
+    try ctx.command.printHelp();
 }
