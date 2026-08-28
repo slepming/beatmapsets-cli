@@ -1,4 +1,16 @@
 const std = @import("std");
+const token = @import("token.zig");
+
+pub const Errors = std.http.Client.FetchError || enum { Unauth };
+
+pub const Search = struct {
+    text: [][]const u8,
+    /// Currently unsupport
+    tags: []Tag,
+};
+
+/// Beatmapsets tags
+pub const Tag = enum { Stream };
 
 pub const Beatmapset = struct {
     anime_cover: bool,
@@ -43,12 +55,15 @@ pub const BeatmapsetSearch = struct {
     total: u64,
     cursor_string: []u8,
 
-    pub fn request(client: *std.http.Client, token: []const u8, allocator: std.mem.Allocator) !BeatmapsetSearch {
+    pub fn request(client: *std.http.Client, tkn: *token.Token, allocator: std.mem.Allocator) Errors!BeatmapsetSearch {
         const path = "https://osu.ppy.sh/api/v2/beatmapsets/search";
         std.log.debug("request {s} sent", .{path});
-        var authorization_token: [256]u8 = undefined;
+        var authorization_token: [512]u8 = undefined;
 
-        _ = try std.fmt.bufPrint(&authorization_token, "Bearer {s}", .{token});
+        _ = std.fmt.bufPrint(&authorization_token, "{s} {s}", .{ tkn.token_type, tkn.access_token }) catch {
+            std.log.err("Authorization token buffer less then token", .{});
+        };
+
         const headers = &[_]std.http.Header{
             .{
                 .name = "Accept",
@@ -77,7 +92,7 @@ pub const BeatmapsetSearch = struct {
         });
 
         if (response.status == .unauthorized) {
-            return error.Unauthorized;
+            return Errors.Unauth;
         }
 
         const result_slice = result.written();
