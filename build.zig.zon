@@ -40,6 +40,10 @@
             .url = "https://github.com/xcaeser/zli/archive/v5.1.3.tar.gz",
             .hash = "zli-5.1.3-LeUjpvkHAQCYj3r-wgQ2r1Gdkk-S61EFABfsXHP5Q4CH",
         },
+        .args = .{
+            .url = "https://github.com/muhammad-fiaz/args.zig/archive/refs/tags/0.0.9.tar.gz",
+            .hash = "args-0.0.9-8hzgbh4KCgB9UYVNvr6R_GmZgq7j1DpV2kGcqn3F36Q1",
+        },
     },
     .paths = .{
         "build.zig",

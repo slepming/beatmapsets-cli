@@ -26,7 +26,7 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const zli = b.dependency("zli", .{ .target = target, .optimize = optimize });
+    const args_mod = b.dependency("args", .{ .target = target, .optimize = optimize });
 
     // This creates a module, which represents a collection of source files alongside
     // some compilation options, such as optimization mode and linked system libraries.
@@ -153,7 +153,7 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_exe_tests.step);
 
     exe.root_module.addImport("httpz", httpz.module("httpz"));
-    exe.root_module.addImport("zli", zli.module("zli"));
+    exe.root_module.addImport("args", args_mod.module("args"));
 
     // Just like flags, top level steps are also listed in the `--help` menu.
     //

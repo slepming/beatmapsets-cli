@@ -1,8 +1,6 @@
 const std = @import("std");
 const token = @import("token.zig");
 
-pub const Errors = std.http.Client.FetchError || enum { Unauth };
-
 pub const Search = struct {
     text: [][]const u8,
     /// Currently unsupport
@@ -55,7 +53,7 @@ pub const BeatmapsetSearch = struct {
     total: u64,
     cursor_string: []u8,
 
-    pub fn request(client: *std.http.Client, tkn: *token.Token, allocator: std.mem.Allocator) Errors!BeatmapsetSearch {
+    pub fn request(client: *std.http.Client, tkn: *const token.Token, allocator: std.mem.Allocator) !BeatmapsetSearch {
         const path = "https://osu.ppy.sh/api/v2/beatmapsets/search";
         std.log.debug("request {s} sent", .{path});
         var authorization_token: [512]u8 = undefined;
@@ -92,7 +90,7 @@ pub const BeatmapsetSearch = struct {
         });
 
         if (response.status == .unauthorized) {
-            return Errors.Unauth;
+            return error.Unauthorization;
         }
 
         const result_slice = result.written();
