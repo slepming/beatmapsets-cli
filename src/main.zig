@@ -56,6 +56,11 @@ pub fn main(init: std.process.Init) !void {
 
     if (search_beatmapsets) |_| {
         const token = try beatmapsets_cli.token.client_credentials_token(allocator, io, client_id, client_secret);
-        _ = try beatmapsets_cli.beatmapsets.BeatmapsetSearch.request(&http_client, &token, allocator);
+        const beatmapset_s = try beatmapsets_cli.beatmapsets.BeatmapsetSearch.request(&http_client, &token, allocator);
+        const beatmapsets = beatmapset_s.beatmapsets;
+
+        for (beatmapsets) |beatmap| {
+            std.log.debug("{s}", .{beatmap.title});
+        }
     }
 }

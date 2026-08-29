@@ -129,7 +129,6 @@ pub const BeatmapsetSearch = struct {
             .response_writer = &result.writer,
         });
         const result_slice = result.written();
-        std.log.debug("{s}", .{result_slice});
 
         if (response.status == .unauthorized) {
             return error.Unauthorization;
