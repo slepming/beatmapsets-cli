@@ -97,8 +97,9 @@ pub const BeatmapsetSearch = struct {
         std.log.debug("request {s} sent", .{path});
         var authorization_token: [1024]u8 = undefined;
 
-        _ = std.fmt.bufPrint(&authorization_token, "{s} {s}", .{ tkn.token_type, tkn.access_token }) catch {
+        const token_header = std.fmt.bufPrint(&authorization_token, "{s} {s}", .{ tkn.token_type, tkn.access_token }) catch {
             std.log.err("Authorization token buffer less then token", .{});
+            return error.AuthorizationBuffer;
         };
 
         const headers = &[_]std.http.Header{
@@ -112,7 +113,7 @@ pub const BeatmapsetSearch = struct {
             },
             .{
                 .name = "Authorization",
-                .value = &authorization_token,
+                .value = token_header,
             },
         };
 
