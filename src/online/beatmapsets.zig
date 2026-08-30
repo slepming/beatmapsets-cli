@@ -1,10 +1,54 @@
 const std = @import("std");
 const token = @import("token.zig");
 
-pub const Search = struct {
-    text: [][]const u8,
+pub const BeatmapsetInfo = struct {
+    text: []const u8,
     /// Currently unsupport
     tags: []Tag,
+    lang: SortLanguage,
+    categ: SearchCategory,
+    criteria: SortCriteria,
+    dir: SortDirection,
+    mode: SortOsuMode,
+    genre: SearchGenre,
+};
+
+pub const SearchCategory = enum { Any, HasLeaderboard, Qualified, Ranked, Loved, Pending, Wip, Graveyard };
+pub const SortCriteria = enum { Ranked, Rating, Title, Artist, Difficulty, Updated, Plays, Favourites, Relevance, Nominations };
+pub const SortDirection = enum { Descending, Ascending };
+pub const SortLanguage = enum(u8) {
+    Any = 0,
+    Unspecified = 1,
+    English = 2,
+    Chinese = 4,
+    French = 7,
+    German = 8,
+    Italian = 11,
+    Japanese = 3,
+    Korean = 6,
+    Spanish = 10,
+    Swedish = 9,
+    Russian = 12,
+    Polish = 13,
+    Instrumental = 5,
+    Other = 14,
+};
+pub const SortOsuMode = enum { Osu, Taiko, Catch, Mania, Any };
+pub const SearchGenre = enum(u8) {
+    Any = 0,
+    Unspecified = 1,
+    VideoGame = 2,
+    Anime = 3,
+    Rock = 4,
+    Pop = 5,
+    Other = 6,
+    Novelty = 7,
+    HipHop = 9,
+    Electronic = 10,
+    Metal = 11,
+    Classical = 12,
+    Folk = 13,
+    Jazz = 14,
 };
 
 /// Beatmapsets tags
@@ -92,7 +136,7 @@ pub const BeatmapsetSearch = struct {
     total: u64,
     cursor: ?std.json.Value = null,
 
-    pub fn request(client: *std.http.Client, tkn: *const token.Token, allocator: std.mem.Allocator) !BeatmapsetSearch {
+    pub fn request(allocator: std.mem.Allocator, client: *std.http.Client, tkn: *const token.Token, search: BeatmapsetInfo) !BeatmapsetSearch {
         const path = "https://osu.ppy.sh/api/v2/beatmapsets/search";
         std.log.debug("request {s} sent", .{path});
         var authorization_token: [1024]u8 = undefined;
@@ -120,9 +164,11 @@ pub const BeatmapsetSearch = struct {
         var result = std.Io.Writer.Allocating.init(allocator);
         defer result.deinit();
 
+        const uri = try std.Uri.parse(path);
+
         const response = try client.fetch(.{
             .location = .{
-                .uri = try std.Uri.parse(path),
+                .uri = uri,
             },
             .method = .GET,
             .extra_headers = headers,
