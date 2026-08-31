@@ -2,7 +2,6 @@ const std = @import("std");
 const api = @import("osu_api");
 const args = @import("args");
 const Io = std.Io;
-const beatmapsets_cli = @import("beatmapsets_cli");
 
 const DESCRIPTION: []const u8 = "Simplest cli osu! api v2 wrapper with cli";
 const NAME: []const u8 = "beatmapsets-cli";
@@ -27,6 +26,11 @@ pub fn main(init: std.process.Init) !void {
         .help = "Enable verbose output",
     });
 
+    try parser.addFlag("client", .{
+        .short = 'c',
+        .help = "Enable user authorization",
+    });
+
     try parser.addOption("search-beatmapsets", .{
         .short = 's',
         .help = "Search terms",
@@ -41,6 +45,7 @@ pub fn main(init: std.process.Init) !void {
 
     //const verbose = result.getBool("verbose") orelse false;
     const search_beatmapsets = result.getString("search-beatmapsets");
+    const user_authorization = result.getBool("client") orelse false;
 
     const client_id_raw = init.environ_map.get("OSU_API_CLIENT_ID") orelse {
         std.log.err("Environment variable 'OSU_API_CLIENT_ID' is null", .{});
@@ -55,8 +60,11 @@ pub fn main(init: std.process.Init) !void {
     };
 
     if (search_beatmapsets) |_| {
-        const token = try beatmapsets_cli.token.client_credentials_token(allocator, io, client_id, client_secret);
-        const beatmapset_s = try beatmapsets_cli.beatmapsets.BeatmapsetSearch.request(&http_client, &token, allocator);
+        var token: api.token.Token = undefined;
+        if (user_authorization) {
+            token = try api.token.auth_client(io, allocator, client_secret, client_id, 3000, "public");
+        } else token = try api.token.client_credentials_token(allocator, io, client_id, client_secret);
+        const beatmapset_s = try api.beatmapsets.BeatmapsetSearch.request(allocator, &http_client, &token, null);
         const beatmapsets = beatmapset_s.beatmapsets;
 
         for (beatmapsets) |beatmap| {

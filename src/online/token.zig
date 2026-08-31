@@ -81,7 +81,7 @@ fn listen(h: *AuthHandler, req: *httpz.Request, res: *httpz.Response) !void {
         .{ h.client_id, h.client_secret, code, localhost, h.port },
     );
 
-    h.code = get_token(
+    h.code = try get_token(
         h.allocator,
         h.io,
         payload,
