@@ -148,8 +148,6 @@ pub const BeatmapsetSearch = struct {
         std.log.debug("unmodified request url {s}", .{path});
         var buffer: [1024]u8 = undefined;
 
-        std.log.debug("query: {s}", .{search.?.query});
-
         const token_header = std.fmt.bufPrint(&buffer, "{s} {s}", .{ tkn.token_type, tkn.access_token }) catch {
             std.log.err("Authorization token buffer less then token", .{});
             return error.AuthorizationBuffer;
@@ -176,6 +174,8 @@ pub const BeatmapsetSearch = struct {
         buffer = undefined;
 
         if (search) |search_info| {
+            std.log.debug("query: {s}", .{search.?.query});
+
             const queries: []const http_ext.Query = &.{
                 .{ .v = @tagName(search_info.categ), .k = "s" },
                 .{ .v = search_info.query, .k = "q" },
@@ -227,5 +227,8 @@ test "Beatmapset unauthorized requests" {
         .io = threaded.io(),
     };
     defer client.deinit();
-    try std.testing.expectError(error.Unauthorized, BeatmapsetSearch.request(&client, "", allocator));
+
+    const tkn = token.Token{ .access_token = "", .expires_in = 3, .token_type = "Bearer", .refresh_token = null };
+
+    try std.testing.expectError(error.Unauthorization, BeatmapsetSearch.request(allocator, &client, &tkn, null));
 }

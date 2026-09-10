@@ -38,12 +38,12 @@ pub fn append_query(buf: []u8, url: []const u8, kv: []const Query) ![]const u8 {
 test "http append query" {
     var buffer: [1024]u8 = undefined;
 
-    const paths: [][]const u8 = [][]const u8{
-        .{"https://example.com/api/"},
-        .{"http://example.com/api"},
-        .{"http:/example.com/api"},
-        .{"http::/example.com/api"},
-        .{"http//example.com/api"},
+    const paths: [5][]const u8 = .{
+        "https://example.com/api/",
+        "http://example.com/api",
+        "http:/example.com/api",
+        "http::/example.com/api",
+        "http//example.com/api",
     };
 
     const result = "https://example.com/api?work=true&test=success";
@@ -60,6 +60,7 @@ test "http append query" {
     };
 
     for (paths) |path| {
-        expect(try append_query(&buffer, path, queries) == result);
+        const extended_url = try append_query(&buffer, path, queries);
+        try expect(std.mem.eql(u8, extended_url, result));
     }
 }
