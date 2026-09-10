@@ -1,16 +1,17 @@
 const std = @import("std");
 const token = @import("token.zig");
+const http_ext = @import("http.zig");
 
-pub const BeatmapsetInfo = struct {
-    text: []const u8,
+pub const BeatmapsetSearchQueryOptions = struct {
+    query: []const u8 = "",
     /// Currently unsupport
-    tags: []Tag,
-    lang: SortLanguage,
-    categ: SearchCategory,
-    criteria: SortCriteria,
-    dir: SortDirection,
-    mode: SortOsuMode,
-    genre: SearchGenre,
+    tags: ?[]Tag = null,
+    lang: SortLanguage = SortLanguage.Any,
+    categ: SearchCategory = SearchCategory.Any,
+    criteria: SortCriteria = SortCriteria.Ranked,
+    dir: SortDirection = SortDirection.Ascending,
+    mode: SortOsuMode = SortOsuMode.Any,
+    genre: SearchGenre = SearchGenre.Any,
 };
 
 pub const SearchCategory = enum { Any, HasLeaderboard, Qualified, Ranked, Loved, Pending, Wip, Graveyard };
@@ -136,14 +137,20 @@ pub const BeatmapsetSearch = struct {
     total: u64,
     cursor: ?std.json.Value = null,
 
-    pub fn request(allocator: std.mem.Allocator, client: *std.http.Client, tkn: *const token.Token, search: ?BeatmapsetInfo) !BeatmapsetSearch {
+    pub fn request(
+        allocator: std.mem.Allocator,
+        client: *std.http.Client,
+        tkn: *const token.Token,
+        search: ?BeatmapsetSearchQueryOptions,
+    ) !BeatmapsetSearch {
         const path = "https://osu.ppy.sh/api/v2/beatmapsets/search";
-        std.log.debug("request {s} sent", .{path});
-        var authorization_token: [1024]u8 = undefined;
+        var modified_url: []const u8 = undefined;
+        std.log.debug("unmodified request url {s}", .{path});
+        var buffer: [1024]u8 = undefined;
 
-        std.log.debug("{s}", .{search.?.text});
+        std.log.debug("query: {s}", .{search.?.query});
 
-        const token_header = std.fmt.bufPrint(&authorization_token, "{s} {s}", .{ tkn.token_type, tkn.access_token }) catch {
+        const token_header = std.fmt.bufPrint(&buffer, "{s} {s}", .{ tkn.token_type, tkn.access_token }) catch {
             std.log.err("Authorization token buffer less then token", .{});
             return error.AuthorizationBuffer;
         };
@@ -166,7 +173,23 @@ pub const BeatmapsetSearch = struct {
         var result = std.Io.Writer.Allocating.init(allocator);
         defer result.deinit();
 
-        const uri = try std.Uri.parse(path);
+        buffer = undefined;
+
+        if (search) |search_info| {
+            const queries: []const http_ext.Query = &.{
+                .{ .v = @tagName(search_info.categ), .k = "s" },
+                .{ .v = search_info.query, .k = "q" },
+            };
+            modified_url = try http_ext.append_query(&buffer, path, queries);
+
+            std.log.debug("modified request uri {s}", .{path});
+        } else {
+            modified_url = path;
+        }
+
+        std.log.debug("modified request url {s}", .{modified_url});
+
+        const uri = try std.Uri.parse(modified_url);
 
         const response = try client.fetch(.{
             .location = .{
@@ -195,38 +218,6 @@ pub const BeatmapsetSearch = struct {
         return parsed.value;
     }
 };
-
-const Query = struct { v: []const u8, k: []const u8 };
-
-/// Append query to base url.
-fn append_query(buf: []u8, url: []const u8, kv: []const Query) ![]const u8 {
-    var written: usize = 0;
-
-    if (buf.len < url.len) return error.NoSpaceLeft;
-    @memcpy(buf[written..], url);
-    written += url.len;
-
-    for (kv, 0..) |q, i| {
-        const sep = if (i == 0) "?" else "&";
-        const query_size = 1 + q.k.len + 1 + q.v.len;
-
-        if (buf.len < written + query_size) return error.NoSpaceLeft;
-
-        buf[written] = sep;
-        written += 1;
-
-        @memcpy(buf[written .. written + q.k.len], q.k);
-        written += q.k.len;
-
-        buf[written] = "=";
-        written += 1;
-
-        @memcpy(buf[written .. written + q.v.len], q.v);
-        written += q.v.len;
-    }
-
-    return buf[0..written];
-}
 
 test "Beatmapset unauthorized requests" {
     const allocator = std.heap.page_allocator;

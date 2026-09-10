@@ -59,12 +59,17 @@ pub fn main(init: std.process.Init) !void {
         return error.AuthorizationError;
     };
 
-    if (search_beatmapsets) |_| {
+    if (search_beatmapsets) |q| {
         var token: api.token.Token = undefined;
         if (user_authorization) {
             token = try api.token.auth_client(io, allocator, client_secret, client_id, 3000, "public");
         } else token = try api.token.client_credentials_token(allocator, io, client_id, client_secret);
-        const beatmapset_s = try api.beatmapsets.BeatmapsetSearch.request(allocator, &http_client, &token, null);
+        const beatmapset_s = try api.beatmapsets.BeatmapsetSearch.request(
+            allocator,
+            &http_client,
+            &token,
+            .{ .query = q },
+        );
         const beatmapsets = beatmapset_s.beatmapsets;
 
         for (beatmapsets) |beatmap| {
