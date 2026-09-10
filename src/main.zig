@@ -1,10 +1,12 @@
 const std = @import("std");
-const api = @import("osu_api");
+const api = @import("beatmapsets_cli");
 const args = @import("args");
 const Io = std.Io;
 
-const DESCRIPTION: []const u8 = "Simplest cli osu! api v2 wrapper with cli";
+const DESCRIPTION: []const u8 = "Simplest osu! api v2 wrapper with cli";
 const NAME: []const u8 = "beatmapsets-cli";
+const VERSION: []const u8 = "0.0.1";
+const PORT: u32 = 3000;
 
 pub fn main(init: std.process.Init) !void {
     const io = init.io;
@@ -15,7 +17,7 @@ pub fn main(init: std.process.Init) !void {
     // Create argument parser
     var parser = try args.ArgumentParser.init(allocator, .{
         .name = NAME,
-        .version = "1.0.0",
+        .version = VERSION,
         .description = DESCRIPTION,
     });
     defer parser.deinit();
@@ -62,7 +64,7 @@ pub fn main(init: std.process.Init) !void {
     if (search_beatmapsets) |q| {
         var token: api.token.Token = undefined;
         if (user_authorization) {
-            token = try api.token.auth_client(io, allocator, client_secret, client_id, 3000, "public");
+            token = try api.token.auth_client(io, allocator, client_secret, client_id, PORT, "public");
         } else token = try api.token.client_credentials_token(allocator, io, client_id, client_secret);
         const beatmapset_s = try api.beatmapsets.BeatmapsetSearch.request(
             allocator,

@@ -1,6 +1,9 @@
 //! Http extensions
 
-pub const Query = struct { v: []const u8, k: []const u8 };
+const std = @import("std");
+const expect = std.testing.expect;
+
+pub const Query = struct { k: []const u8, v: []const u8 };
 
 /// Append query to base url.
 pub fn append_query(buf: []u8, url: []const u8, kv: []const Query) ![]const u8 {
@@ -30,4 +33,33 @@ pub fn append_query(buf: []u8, url: []const u8, kv: []const Query) ![]const u8 {
     }
 
     return buf[0..cursor];
+}
+
+test "http append query" {
+    var buffer: [1024]u8 = undefined;
+
+    const paths: [][]const u8 = [][]const u8{
+        .{"https://example.com/api/"},
+        .{"http://example.com/api"},
+        .{"http:/example.com/api"},
+        .{"http::/example.com/api"},
+        .{"http//example.com/api"},
+    };
+
+    const result = "https://example.com/api?work=true&test=success";
+
+    const queries: []const Query = &.{
+        .{
+            .k = "work",
+            .v = "true",
+        },
+        .{
+            .k = "test",
+            .v = "success",
+        },
+    };
+
+    for (paths) |path| {
+        expect(try append_query(&buffer, path, queries) == result);
+    }
 }
