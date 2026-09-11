@@ -49,8 +49,8 @@ pub fn append_query(buf: []u8, url_raw: []const u8, kv: []const Query) ![]const 
     var url: [URL_MAX_LENGTH]u8 = undefined;
 
     var url_size = url_raw.len;
-    if (url_raw[url_raw.len - 1] == 0x3A) {
-        url_size = url_raw.len - 2;
+    if (url_raw[url_raw.len - 1] == 0x2F) {
+        url_size = url_raw.len - 1;
         @memcpy(url[0..url_size], url_raw[0..url_size]);
     } else @memcpy(url[0..url_raw.len], url_raw);
 
