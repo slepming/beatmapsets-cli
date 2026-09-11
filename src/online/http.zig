@@ -1,16 +1,21 @@
 //! Http extensions
 
 const std = @import("std");
-const expect = std.testing.expect;
+const testing = std.testing;
+
+pub const URL_MAX_LENGTH = 1024;
 
 pub const Query = struct { k: []const u8, v: []const u8 };
 
 /// Append query to base url.
-pub fn append_query(buf: []u8, url: []const u8, kv: []const Query) ![]const u8 {
+///
+/// Result live while buffer live
+pub fn append_query_raw(buf: []u8, url: []const u8, kv: []const Query) ![]const u8 {
     var cursor: usize = 0;
 
     if (buf.len < url.len) return error.NoSpaceLeft;
-    @memcpy(buf[cursor..], url);
+
+    @memcpy(buf[cursor..url.len], url);
     cursor += url.len;
 
     for (kv, 0..) |q, i| {
@@ -33,6 +38,25 @@ pub fn append_query(buf: []u8, url: []const u8, kv: []const Query) ![]const u8 {
     }
 
     return buf[0..cursor];
+}
+
+pub fn append_query(buf: []u8, url_raw: []const u8, kv: []const Query) ![]const u8 {
+    var protocol = std.mem.splitAny(u8, url_raw, ":");
+    var url: [URL_MAX_LENGTH]u8 = undefined;
+
+    if (url_raw[url_raw.len - 1] == 0x3A) {
+        @memcpy(url[0 .. url_raw.len - 1], url_raw[0 .. url_raw.len - 2]);
+    } else @memcpy(&url, url_raw);
+
+    if (!std.mem.eql(u8, protocol.first(), "https")) {
+        std.log.debug("You are not using the https protocol. If it's intentional use instead append_query_raw()", .{});
+        if (std.mem.replace(u8, &url, protocol.first(), "https", &url) == 0) {
+            return error.ReplaceMemoryError;
+        }
+    }
+
+    std.log.debug("Current url {s}", .{url});
+    return append_query_raw(buf, &url, kv);
 }
 
 test "http append query" {
@@ -61,6 +85,6 @@ test "http append query" {
 
     for (paths) |path| {
         const extended_url = try append_query(&buffer, path, queries);
-        try expect(std.mem.eql(u8, extended_url, result));
+        try testing.expectEqualStrings(result, extended_url);
     }
 }
