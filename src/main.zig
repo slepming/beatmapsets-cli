@@ -29,8 +29,7 @@ pub fn main(init: std.process.Init) !void {
     });
 
     try parser.addFlag("client", .{
-        .short = 'c',
-        .help = "Enable user authorization",
+        .help = "Enable client authorization",
     });
 
     try parser.addOption("search-beatmapsets", .{

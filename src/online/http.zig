@@ -53,7 +53,6 @@ pub fn append_query(buf: []u8, url_raw: []const u8, kv: []const Query) ![]const 
         @memcpy(url[0..url_size], url_raw[0..url_size]);
     } else @memcpy(url[0..url_raw.len], url_raw);
 
-    std.log.debug("Current url {s}", .{url});
     return append_query_raw(
         buf,
         &url,
