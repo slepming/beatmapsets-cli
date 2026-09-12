@@ -45,7 +45,6 @@ pub fn append_query_http(buf: []u8, url: []const u8, kv: []const Query) ![]const
 }
 
 pub fn append_query(buf: []u8, url_raw: []const u8, kv: []const Query) ![]const u8 {
-    var protocol = std.mem.splitAny(u8, url_raw, ":");
     var url: [URL_MAX_LENGTH]u8 = undefined;
 
     var url_size = url_raw.len;
@@ -53,13 +52,6 @@ pub fn append_query(buf: []u8, url_raw: []const u8, kv: []const Query) ![]const 
         url_size = url_raw.len - 1;
         @memcpy(url[0..url_size], url_raw[0..url_size]);
     } else @memcpy(url[0..url_raw.len], url_raw);
-
-    if (!std.mem.eql(u8, protocol.first(), "https")) {
-        std.log.debug("You are not using the https protocol. If it's intentional use instead append_query_raw()", .{});
-        if (std.mem.replace(u8, &url, protocol.first(), "https", &url) == 0) {
-            return error.ReplaceMemoryError;
-        }
-    }
 
     std.log.debug("Current url {s}", .{url});
     return append_query_raw(
@@ -73,12 +65,9 @@ pub fn append_query(buf: []u8, url_raw: []const u8, kv: []const Query) ![]const 
 test "http append query" {
     var buffer: [1024]u8 = undefined;
 
-    const paths: [5][]const u8 = .{
+    const paths: [2][]const u8 = .{
         "https://example.com/api/",
-        "http://example.com/api",
-        "http:/example.com/api",
-        "http::/example.com/api",
-        "http//example.com/api",
+        "https://example.com/api",
     };
 
     const result = "https://example.com/api?work=true&test=success";

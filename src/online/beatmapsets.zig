@@ -182,7 +182,7 @@ pub const BeatmapsetSearch = struct {
             };
             modified_url = try http_ext.append_query(&buffer, path, queries);
 
-            std.log.debug("modified request uri {s}", .{path});
+            std.log.debug("modified request url {s}", .{path});
         } else {
             modified_url = path;
         }
