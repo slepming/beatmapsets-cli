@@ -179,10 +179,13 @@ pub const BeatmapsetSearch = struct {
 
         if (search) |search_info| {
             std.log.debug("query: {s}", .{search.?.query});
-
             const queries: []const http_ext.Query = &.{
                 .{ .v = @tagName(search_info.categ), .k = "s" },
-                .{ .v = search_info.query, .k = "q" },
+                .{ .v = @tagName(search_info.criteria), .k = "sort" },
+                // .{ .v = std.fmt.form, .k = "l" },
+                // .{ .v = search_info.genre, .k = "g" },
+                // .{ .v = search_info.mode, .k = "m" },
+                // .{ .v = search_info.query, .k = "q" },
             };
             modified_url = try http_ext.append_query(&buffer, path, queries);
         } else {
@@ -201,7 +204,6 @@ pub const BeatmapsetSearch = struct {
             .extra_headers = headers,
             .response_writer = &result.writer,
         });
-        std.log.debug("{s}", .{result.writer.buffer});
         const result_slice = result.written();
 
         if (response.status == .unauthorized) {
