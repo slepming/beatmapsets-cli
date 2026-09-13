@@ -1,5 +1,5 @@
 const std = @import("std");
-const token = @import("token.zig");
+const authorization = @import("token.zig");
 const http_ext = @import("http.zig");
 
 pub const BeatmapsetSearchQueryOptions = struct {
@@ -140,18 +140,22 @@ pub const BeatmapsetSearch = struct {
     pub fn request(
         allocator: std.mem.Allocator,
         client: *std.http.Client,
-        tkn: *const token.Token,
+        tkn: *const authorization.Token,
         search: ?BeatmapsetSearchQueryOptions,
     ) !BeatmapsetSearch {
         const path = "https://osu.ppy.sh/api/v2/beatmapsets/search";
         var modified_url: []const u8 = undefined;
-        std.log.debug("unmodified request url {s}", .{path});
         var buffer: [1024]u8 = undefined;
 
-        const token_header = std.fmt.bufPrint(&buffer, "{s} {s}", .{ tkn.token_type, tkn.access_token }) catch {
+        const token_slice = std.fmt.bufPrint(&buffer, "{s} {s}", .{ tkn.token_type, tkn.access_token }) catch {
             std.log.err("Authorization token buffer less then token", .{});
             return error.AuthorizationBuffer;
         };
+
+        var token: [1024]u8 = undefined;
+        const token_len = token_slice.len;
+
+        @memcpy(token[0..token_len], token_slice);
 
         const headers = &[_]std.http.Header{
             .{
@@ -164,7 +168,7 @@ pub const BeatmapsetSearch = struct {
             },
             .{
                 .name = "Authorization",
-                .value = token_header,
+                .value = token[0..token_len],
             },
         };
 
@@ -181,13 +185,11 @@ pub const BeatmapsetSearch = struct {
                 .{ .v = search_info.query, .k = "q" },
             };
             modified_url = try http_ext.append_query(&buffer, path, queries);
-
-            std.log.debug("modified request url {s}", .{path});
         } else {
             modified_url = path;
         }
 
-        std.log.debug("modified request url {s}", .{modified_url});
+        std.log.debug("request url {s}", .{modified_url});
 
         const uri = try std.Uri.parse(modified_url);
 
@@ -199,10 +201,17 @@ pub const BeatmapsetSearch = struct {
             .extra_headers = headers,
             .response_writer = &result.writer,
         });
+        std.log.debug("{s}", .{result.writer.buffer});
         const result_slice = result.written();
 
         if (response.status == .unauthorized) {
+            std.log.err("{s}", .{result_slice});
             return error.Unauthorization;
+        }
+
+        if (response.status != .ok) {
+            std.log.err("{s}", .{result_slice});
+            return error.UnhandledResponseStatus;
         }
 
         const parsed = try std.json.parseFromSlice(
@@ -220,7 +229,7 @@ pub const BeatmapsetSearch = struct {
 };
 
 test "Beatmapset unauthorized requests" {
-    const allocator = std.heap.page_allocator;
+    const allocator = std.testing.allocator;
     var threaded = std.Io.Threaded.init(allocator, .{});
     var client = std.http.Client{
         .allocator = allocator,
@@ -228,7 +237,7 @@ test "Beatmapset unauthorized requests" {
     };
     defer client.deinit();
 
-    const tkn = token.Token{ .access_token = "", .expires_in = 3, .token_type = "Bearer", .refresh_token = null };
+    const tkn = authorization.Token{ .access_token = "", .expires_in = 3, .token_type = "Bearer", .refresh_token = null };
 
     try std.testing.expectError(error.Unauthorization, BeatmapsetSearch.request(allocator, &client, &tkn, null));
 }
