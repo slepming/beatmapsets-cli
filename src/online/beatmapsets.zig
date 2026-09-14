@@ -1,6 +1,7 @@
 const std = @import("std");
 const authorization = @import("token.zig");
 const http_ext = @import("http.zig");
+const str = @import("../str.zig");
 
 pub const BeatmapsetSearchQueryOptions = struct {
     query: []const u8 = "",
@@ -177,15 +178,19 @@ pub const BeatmapsetSearch = struct {
 
         buffer = undefined;
 
+        var language: [3]u8 = undefined;
+        var mode: [3]u8 = undefined;
+        var genre: [3]u8 = undefined;
+
         if (search) |search_info| {
             std.log.debug("query: {s}", .{search.?.query});
             const queries: []const http_ext.Query = &.{
                 .{ .v = @tagName(search_info.categ), .k = "s" },
                 .{ .v = @tagName(search_info.criteria), .k = "sort" },
-                // .{ .v = std.fmt.form, .k = "l" },
-                // .{ .v = search_info.genre, .k = "g" },
-                // .{ .v = search_info.mode, .k = "m" },
-                // .{ .v = search_info.query, .k = "q" },
+                .{ .v = str.from_u8(&language, @intFromEnum(search_info.lang)), .k = "l" },
+                .{ .v = str.from_u8(&genre, @intFromEnum(search_info.genre)), .k = "g" },
+                .{ .v = str.from_u8(&mode, @intFromEnum(search_info.mode)), .k = "m" },
+                .{ .v = search_info.query, .k = "q" },
             };
             modified_url = try http_ext.append_query(&buffer, path, queries);
         } else {
