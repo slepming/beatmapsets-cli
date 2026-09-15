@@ -37,9 +37,6 @@ pub fn main(init: std.process.Init) !void {
         .help = "Search terms",
     });
 
-    var http_client = std.http.Client{ .allocator = allocator, .io = io };
-    defer http_client.deinit();
-
     // Parse command-line arguments from the process init context
     var result = try parser.parseProcess(init);
     defer result.deinit();
@@ -61,20 +58,31 @@ pub fn main(init: std.process.Init) !void {
     };
 
     if (search_beatmapsets) |q| {
-        var token: api.token.Token = undefined;
-        if (user_authorization) {
-            token = try api.token.auth_client(io, allocator, client_secret, client_id, PORT, "public");
-        } else token = try api.token.client_credentials_token(allocator, io, client_id, client_secret);
-        const beatmapset_s = try api.beatmapsets.BeatmapsetSearch.request(
-            allocator,
-            &http_client,
-            &token,
-            .{ .query = q },
-        );
-        const beatmapsets = beatmapset_s.beatmapsets;
-
-        for (beatmapsets) |beatmap| {
-            std.log.debug("{s}", .{beatmap.title});
-        }
+        try search_beatmapsets_f(io, allocator, q, client_secret, client_id, user_authorization);
     }
+}
+
+fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8, client_secret: []const u8, client_id: u64, authorization_type: bool) !void {
+    var http_client = std.http.Client{ .allocator = allocator, .io = io };
+    defer http_client.deinit();
+    var token: api.token.Token = try authorization(io, allocator, client_secret, client_id, authorization_type);
+    const beatmapset_s = try api.beatmapsets.BeatmapsetSearch.request(
+        allocator,
+        &http_client,
+        &token,
+        .{ .query = q },
+    );
+    const beatmapsets = beatmapset_s.beatmapsets;
+
+    for (beatmapsets) |beatmap| {
+        std.log.debug("{s}", .{beatmap.title});
+    }
+}
+
+fn authorization(io: std.Io, allocator: std.mem.Allocator, client_secret: []const u8, client_id: u64, authorization_type: bool) !api.token.Token {
+    if (authorization_type) {
+        return api.token.auth_client(io, allocator, client_secret, client_id, PORT, "public");
+    }
+
+    return api.token.client_credentials_token(allocator, io, client_id, client_secret);
 }
