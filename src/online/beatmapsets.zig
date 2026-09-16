@@ -217,6 +217,7 @@ pub const BeatmapsetSearch = struct {
         }
 
         if (response.status != .ok) {
+            std.log.err("{s}", .{result_slice});
             return error.UnhandledResponseStatus;
         }
 
