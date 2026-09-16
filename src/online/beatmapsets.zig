@@ -209,15 +209,14 @@ pub const BeatmapsetSearch = struct {
             .extra_headers = headers,
             .response_writer = &result.writer,
         });
+
         const result_slice = result.written();
 
         if (response.status == .unauthorized) {
-            std.log.err("{s}", .{result_slice});
             return error.Unauthorization;
         }
 
         if (response.status != .ok) {
-            std.log.err("{s}", .{result_slice});
             return error.UnhandledResponseStatus;
         }
 
@@ -247,4 +246,37 @@ test "Beatmapset unauthorized requests" {
     const tkn = authorization.Token{ .access_token = "", .expires_in = 3, .token_type = "Bearer", .refresh_token = null };
 
     try std.testing.expectError(error.Unauthorization, BeatmapsetSearch.request(allocator, &client, &tkn, null));
+}
+
+test "Beatmapset authorized request" {
+    const allocator = std.testing.allocator;
+
+    const io = std.testing.io;
+    var env = try std.testing.environ.createMap(allocator);
+    defer env.deinit();
+
+    const tkn = env.get("OSU_API_TOKEN");
+
+    var http_client = std.http.Client{ .allocator = allocator, .io = io };
+
+    if (tkn) |token| {
+        const structed_token = authorization.Token{
+            .access_token = token,
+            .token_type = "Bearer",
+            .expires_in = 0,
+            .refresh_token = null,
+        };
+
+        const beatmapsets = try BeatmapsetSearch.request(
+            allocator,
+            &http_client,
+            &structed_token,
+            null,
+        );
+
+        try std.testing.expectEqual(50, beatmapsets.beatmapsets.len);
+    } else {
+        std.log.err("OSU_API_TOKEN variable is empty. For tests you need get token from osu api", .{});
+        return error.TokenUnavailable;
+    }
 }

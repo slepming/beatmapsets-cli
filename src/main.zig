@@ -72,6 +72,7 @@ fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8,
         &token,
         .{ .query = q },
     );
+
     const beatmapsets = beatmapset_s.beatmapsets;
 
     for (beatmapsets) |beatmap| {
