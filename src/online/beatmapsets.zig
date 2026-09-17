@@ -107,6 +107,9 @@ pub const Beatmap = struct {
     checksum: ?[]const u8 = null,
     max_combo: ?u32 = null,
 
+    /// Returns beatmap by beatmap(not beatmapset id) id
+    ///
+    /// See also [Beatmap](https://osu.ppy.sh/wiki/en/Beatmap)
     pub fn get_beatmap(allocator: std.mem.Allocator, client: *std.http.Client, tkn: *const authorization.Token, id: u32) !Beatmap {
         const path = "https://osu.ppy.sh/api/v2/beatmaps/";
         var modified_url: []const u8 = undefined;
@@ -209,6 +212,9 @@ pub const BeatmapsetSearch = struct {
     cursor_string: []const u8,
     cursor: Cursor,
 
+    /// Returns structure by search options
+    ///
+    /// See also [SearchBeatmapsets](https://osu.ppy.sh/docs/index.html#search-beatmapset)
     pub fn request(
         allocator: std.mem.Allocator,
         client: *std.http.Client,
