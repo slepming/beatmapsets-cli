@@ -64,6 +64,51 @@ pub fn append_query(buf: []u8, url_raw: []const u8, kv: []const Query) std.fmt.B
     );
 }
 
+pub fn fetch_with_json(
+    comptime T: type,
+    client: std.http.Client,
+    allocator: std.mem.Allocator,
+    url: []const u8,
+    headers: []std.http.Header,
+) !std.json.Parsed(T) {
+    const uri = try std.Uri.parse(url);
+
+    var result = std.Io.Writer.Allocating.init(allocator);
+    defer result.deinit();
+
+    const response = try client.fetch(.{
+        .location = .{
+            .uri = uri,
+        },
+        .method = .GET,
+        .extra_headers = headers,
+        .response_writer = &result.writer,
+    });
+
+    const result_slice = result.written();
+
+    if (response.status == .unauthorized) {
+        return HttpStatusError.Unauthorization;
+    }
+
+    if (response.status != .ok) {
+        std.log.err("{s}", .{result_slice});
+        return HttpStatusError.UnhandledResponseStatus;
+    }
+
+    const parsed = try std.json.parseFromSlice(
+        T,
+        allocator,
+        result_slice,
+        .{
+            .ignore_unknown_fields = true,
+        },
+    );
+    defer parsed.deinit();
+
+    return parsed.value;
+}
+
 test "http append query" {
     var buffer: [1024]u8 = undefined;
 

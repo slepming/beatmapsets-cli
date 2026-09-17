@@ -1,47 +1,34 @@
 const std = @import("std");
 const mem = std.mem;
 
-pub fn from_i8(buffer: []u8, integer: i8) []const u8 {
-    var current: u8 = 0;
-    if (integer < 0) {
-        current = @intCast(integer * -1);
-    } else current = @intCast(integer);
-    return from_u8(buffer, current);
+pub fn from_i8(buffer: []u8, integer: i8) ![]const u8 {
+    return try std.fmt.bufPrint(buffer, "{}", .{integer});
 }
 
-pub fn from_u8(buffer: []u8, integer: u8) []const u8 {
-    var current: u8 = integer;
-    var _buffer: [16]u8 = undefined;
-
-    const ascii_shift: u8 = 0x30;
-    const divider: u8 = 0xA;
-    var i: u8 = 0x0;
-    while (current / divider != 0x0) : (i +%= 1) {
-        _buffer[i] = (current % divider) + ascii_shift;
-        current = current / divider;
-    }
-    _buffer[i] = current + ascii_shift;
-    i +%= 1;
-
-    mem.reverse(u8, _buffer[0..i]);
-
-    @memcpy(buffer[0..i], _buffer[0..i]);
-
-    return buffer[0..i];
+pub fn from_u8(buffer: []u8, integer: u8) ![]const u8 {
+    return try std.fmt.bufPrint(buffer, "{}", .{integer});
 }
 
-test "convert i8 to ascii" {
-    const ascii = &[_]u8{ '1', '0', '0' };
-    var buffer: [128]u8 = undefined;
-    const integer: i8 = 100;
-
-    try std.testing.expectEqualStrings(ascii, from_i8(&buffer, integer));
+pub fn from_u32(buffer: []u8, integer: u32) ![]const u8 {
+    return try std.fmt.bufPrint(buffer, "{}", .{integer});
 }
 
-test "convert u8 to ascii" {
+pub fn from_i32(buffer: []u8, integer: i32) ![]const u8 {
+    return try std.fmt.bufPrint(buffer, "{}", .{integer});
+}
+
+test "convert" {
     const ascii = &[_]u8{ '2', '3', '0' };
+    const ascii_less = &[_]u8{ '1', '0', '0' };
+    const ascii_more = &[_]u8{ '2', '0', '0', '0', '0', '0' };
     var buffer: [128]u8 = undefined;
-    const integer: u8 = 230;
+    const integer_u8: u8 = 230;
+    const integer_i8: i8 = 100;
+    const integer_u32: u32 = 200000;
+    const integer_i32: i32 = 200000;
 
-    try std.testing.expectEqualStrings(ascii, from_u8(&buffer, integer));
+    try std.testing.expectEqualStrings(ascii, try from_u8(&buffer, integer_u8));
+    try std.testing.expectEqualStrings(ascii_less, try from_i8(&buffer, integer_i8));
+    try std.testing.expectEqualStrings(ascii_more, try from_u32(&buffer, integer_u32));
+    try std.testing.expectEqualStrings(ascii_more, try from_i32(&buffer, integer_i32));
 }

@@ -206,9 +206,6 @@ pub const BeatmapsetSearch = struct {
             },
         };
 
-        var result = std.Io.Writer.Allocating.init(allocator);
-        defer result.deinit();
-
         buffer = undefined;
 
         var language: [3]u8 = undefined;
@@ -220,9 +217,9 @@ pub const BeatmapsetSearch = struct {
             const queries: []const http_ext.Query = &.{
                 .{ .v = @tagName(search_info.categ), .k = "s" },
                 .{ .v = @tagName(search_info.criteria), .k = "sort" },
-                .{ .v = str.from_u8(&language, @intFromEnum(search_info.lang)), .k = "l" },
-                .{ .v = str.from_u8(&genre, @intFromEnum(search_info.genre)), .k = "g" },
-                .{ .v = str.from_u8(&mode, @intFromEnum(search_info.mode)), .k = "m" },
+                .{ .v = try str.from_u8(&language, @intFromEnum(search_info.lang)), .k = "l" },
+                .{ .v = try str.from_u8(&genre, @intFromEnum(search_info.genre)), .k = "g" },
+                .{ .v = try str.from_u8(&mode, @intFromEnum(search_info.mode)), .k = "m" },
                 .{ .v = search_info.query, .k = "q" },
             };
             modified_url = try http_ext.append_query(&buffer, path, queries);
@@ -232,39 +229,8 @@ pub const BeatmapsetSearch = struct {
 
         std.log.debug("request url {s}", .{modified_url});
 
-        const uri = try std.Uri.parse(modified_url);
-
-        const response = try client.fetch(.{
-            .location = .{
-                .uri = uri,
-            },
-            .method = .GET,
-            .extra_headers = headers,
-            .response_writer = &result.writer,
-        });
-
-        const result_slice = result.written();
-
-        if (response.status == .unauthorized) {
-            return SearchBeatmapsetsError.Unauthorization;
-        }
-
-        if (response.status != .ok) {
-            std.log.err("{s}", .{result_slice});
-            return SearchBeatmapsetsError.UnhandledResponseStatus;
-        }
-
-        const parsed = try std.json.parseFromSlice(
-            BeatmapsetSearch,
-            allocator,
-            result_slice,
-            .{
-                .ignore_unknown_fields = true,
-            },
-        );
-        defer parsed.deinit();
-
-        return parsed.value;
+        const value = try http_ext.fetch_with_json(BeatmapsetSearch, client, allocator, modified_url, headers);
+        return value.value;
     }
 };
 
