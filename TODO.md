@@ -2,6 +2,6 @@
 - [ ] URL parsing
 
 # API
-- [ ] Beatmapsets
-- [ ] Beatmaps
-- [ ] Authentication
+- [ ] Beatmapsets: ~~SearchBeatmapsets~~, GetBeatmapsets
+- [ ] Beatmaps: ~~GetBeatmap~~, GetBeatmapsets
+- [ ] Authentication: ~~ClientCredential~~, ~~CodeGrant~~, RefreshToken
