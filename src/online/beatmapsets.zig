@@ -296,6 +296,7 @@ test "Beatmapset authorized request" {
     const tkn = env.get("OSU_API_TOKEN");
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
+    defer http_client.deinit();
 
     if (tkn) |token| {
         const structed_token = authorization.Token{
@@ -328,6 +329,7 @@ test "Receive beatmap by id" {
     const tkn = env.get("OSU_API_TOKEN");
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
+    defer http_client.deinit();
 
     if (tkn) |token| {
         const structed_token = authorization.Token{
