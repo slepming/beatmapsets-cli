@@ -5,15 +5,17 @@ const testing = std.testing;
 
 pub const URL_MAX_LENGTH = 1024;
 
+pub const HttpStatusError = error{ UnhandledResponseStatus, Unauthorization };
+
 pub const Query = struct { k: []const u8, v: []const u8 };
 
 /// Append query to base url with url size value.
 ///
 /// Result live while buffer live
-pub fn append_query_raw(buf: []u8, url: []const u8, kv: []const Query, val: usize) ![]const u8 {
+pub fn append_query_raw(buf: []u8, url: []const u8, kv: []const Query, val: usize) std.fmt.BufPrintError![]const u8 {
     var cursor: usize = 0;
 
-    if (buf.len < url.len) return error.NoSpaceLeft;
+    if (buf.len < url.len) return std.fmt.BufPrintError.NoSpaceLeft;
 
     @memcpy(buf[cursor..val], url[0..val]);
     cursor += val;
@@ -22,7 +24,7 @@ pub fn append_query_raw(buf: []u8, url: []const u8, kv: []const Query, val: usiz
         const sep: u8 = if (i == 0) 0x3F else 0x26;
         const query_size = 1 + q.k.len + 1 + q.v.len;
 
-        if (buf.len < cursor + query_size) return error.NoSpaceLeft;
+        if (buf.len < cursor + query_size) return std.fmt.BufPrintError.NoSpaceLeft;
 
         buf[cursor] = sep;
         cursor += 1;
@@ -40,11 +42,12 @@ pub fn append_query_raw(buf: []u8, url: []const u8, kv: []const Query, val: usiz
     return buf[0..cursor];
 }
 
-pub fn append_query_http(buf: []u8, url: []const u8, kv: []const Query) ![]const u8 {
+pub fn append_query_http(buf: []u8, url: []const u8, kv: []const Query) std.fmt.BufPrintError![]const u8 {
     return append_query_raw(buf, url, kv, url.len);
 }
 
-pub fn append_query(buf: []u8, url_raw: []const u8, kv: []const Query) ![]const u8 {
+pub fn append_query(buf: []u8, url_raw: []const u8, kv: []const Query) std.fmt.BufPrintError![]const u8 {
+    if (buf.len < url_raw.len) return std.fmt.BufPrintError.NoSpaceLeft;
     var url: [URL_MAX_LENGTH]u8 = undefined;
 
     var url_size = url_raw.len;

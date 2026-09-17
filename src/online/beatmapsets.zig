@@ -3,6 +3,8 @@ const authorization = @import("token.zig");
 const http_ext = @import("http.zig");
 const str = @import("../str.zig");
 
+pub const SearchBeatmapsetsError = std.fmt.BufPrintError || http_ext.HttpStatusError;
+
 pub const BeatmapsetSearchQueryOptions = struct {
     query: []const u8 = "",
     /// Currently unsupport
@@ -150,7 +152,7 @@ pub const BeatmapsetSearch = struct {
 
         const token_slice = std.fmt.bufPrint(&buffer, "{s} {s}", .{ tkn.token_type, tkn.access_token }) catch {
             std.log.err("Authorization token buffer less then token", .{});
-            return error.AuthorizationBuffer;
+            return std.fmt.BufPrintError.NoSpaceLeft;
         };
 
         var token: [1024]u8 = undefined;
@@ -213,12 +215,12 @@ pub const BeatmapsetSearch = struct {
         const result_slice = result.written();
 
         if (response.status == .unauthorized) {
-            return error.Unauthorization;
+            return SearchBeatmapsetsError.Unauthorization;
         }
 
         if (response.status != .ok) {
             std.log.err("{s}", .{result_slice});
-            return error.UnhandledResponseStatus;
+            return SearchBeatmapsetsError.UnhandledResponseStatus;
         }
 
         const parsed = try std.json.parseFromSlice(
@@ -246,7 +248,7 @@ test "Beatmapset unauthorized requests" {
 
     const tkn = authorization.Token{ .access_token = "", .expires_in = 3, .token_type = "Bearer", .refresh_token = null };
 
-    try std.testing.expectError(error.Unauthorization, BeatmapsetSearch.request(allocator, &client, &tkn, null));
+    try std.testing.expectError(SearchBeatmapsetsError.Unauthorization, BeatmapsetSearch.request(allocator, &client, &tkn, null));
 }
 
 test "Beatmapset authorized request" {
