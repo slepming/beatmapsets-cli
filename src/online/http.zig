@@ -66,10 +66,10 @@ pub fn append_query(buf: []u8, url_raw: []const u8, kv: []const Query) std.fmt.B
 
 pub fn fetch_with_json(
     comptime T: type,
-    client: std.http.Client,
+    client: *std.http.Client,
     allocator: std.mem.Allocator,
     url: []const u8,
-    headers: []std.http.Header,
+    headers: []const std.http.Header,
 ) !std.json.Parsed(T) {
     const uri = try std.Uri.parse(url);
 
@@ -106,7 +106,7 @@ pub fn fetch_with_json(
     );
     defer parsed.deinit();
 
-    return parsed.value;
+    return parsed;
 }
 
 test "http append query" {
