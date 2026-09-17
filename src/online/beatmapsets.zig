@@ -3,7 +3,7 @@ const authorization = @import("token.zig");
 const http_ext = @import("http.zig");
 const str = @import("../str.zig");
 
-pub const SearchBeatmapsetsError = std.fmt.BufPrintError || http_ext.HttpStatusError;
+pub const SearchBeatmapsetsError = std.fmt.BufPrintError || http_ext.HttpStatusError || std.http.Client.FetchError;
 
 pub const BeatmapsetSearchQueryOptions = struct {
     query: []const u8 = "",
@@ -69,6 +69,7 @@ pub const Covers = struct {
     @"slimcover@2x": []const u8,
 };
 
+/// See wiki [beatmap](https://osu.ppy.sh/wiki/en/Beatmap)
 pub const Beatmap = struct {
     id: u64,
     beatmapset_id: u64,
@@ -91,6 +92,7 @@ pub const Beatmap = struct {
     hit_length: u32,
     is_scoreable: bool,
     last_updated: []const u8,
+    /// See [`SortOsuMode`]
     mode_int: u8,
     passcount: u64 = 0,
     playcount: u64 = 0,
@@ -100,20 +102,27 @@ pub const Beatmap = struct {
     max_combo: ?u32 = null,
 };
 
+/// See wiki [beatmap](https://osu.ppy.sh/wiki/en/Beatmap)
 pub const Beatmapset = struct {
     id: u64,
+    /// Music artist
     artist: []const u8,
     artist_unicode: ?[]const u8 = null,
     title: []const u8,
     title_unicode: ?[]const u8 = null,
+    /// Map creator
     creator: []const u8,
     source: []const u8 = "",
     status: []const u8,
+    /// Beatmapset avatar, background img from osu.ppy.sh/beatmasets/id
     covers: Covers,
+    /// If beatmapset will has an anime cover will be true
     anime_cover: bool = false,
     nsfw: bool = false,
     spotlight: bool = false,
+    /// Does beatmapset have a storyboard?
     storyboard: bool = false,
+    /// Does beatmapset have a video background?
     video: bool = false,
     preview_url: ?[]const u8 = null,
     bpm: f64,
@@ -126,19 +135,35 @@ pub const Beatmapset = struct {
     last_updated: []const u8,
     submitted_date: ?[]const u8 = null,
     ranked_date: ?[]const u8 = null,
+    /// See [`SearchGenre`]
     genre_id: ?u64 = null,
+    /// See [`SortLanguage`]
     language_id: ?u64 = null,
     offset: ?i64 = null,
     tags: []const u8 = "",
     pack_tags: ?[]const []const u8 = null,
     track_id: ?u32 = null,
+    /// Beatmapset contains beatmap (with difficulties like 3 star beatmap with title "expert")
+    ///
+    /// See osu wiki [beatmap](https://osu.ppy.sh/wiki/en/Beatmap)
     beatmaps: ?[]const Beatmap = null,
 };
 
+pub const Search = struct { sort: []const u8 };
+pub const Cursor = struct { approved_date: i64, id: i64 };
+
 pub const BeatmapsetSearch = struct {
+    /// Beatmapsets array from search
     beatmapsets: []Beatmapset,
     total: u64,
-    cursor: ?std.json.Value = null,
+    @"error": ?[]const u8 = null,
+    /// Sort parameter
+    search: Search,
+    /// Recommended for user difficulty
+    recommended_difficulty: ?[]const u8 = null,
+    /// Cursor to next to new beatmapets page
+    cursor_string: []const u8,
+    cursor: Cursor,
 
     pub fn request(
         allocator: std.mem.Allocator,
@@ -152,7 +177,7 @@ pub const BeatmapsetSearch = struct {
 
         const token_slice = std.fmt.bufPrint(&buffer, "{s} {s}", .{ tkn.token_type, tkn.access_token }) catch {
             std.log.err("Authorization token buffer less then token", .{});
-            return std.fmt.BufPrintError.NoSpaceLeft;
+            return SearchBeatmapsetsError.NoSpaceLeft;
         };
 
         var token: [1024]u8 = undefined;
