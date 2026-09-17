@@ -17,9 +17,11 @@ pub const BeatmapsetSearchQueryOptions = struct {
     genre: SearchGenre = SearchGenre.Any,
 };
 
+/// See [caterogy](https://osu.ppy.sh/wiki/en/Beatmap/Category)
 pub const SearchCategory = enum { Any, HasLeaderboard, Qualified, Ranked, Loved, Pending, Wip, Graveyard };
 pub const SortCriteria = enum { Ranked, Rating, Title, Artist, Difficulty, Updated, Plays, Favourites, Relevance, Nominations };
 pub const SortDirection = enum { Descending, Ascending };
+/// See [Genre and Languages](https://osu.ppy.sh/wiki/en/Beatmap/Genre_and_language)
 pub const SortLanguage = enum(u8) {
     Any = 0,
     Unspecified = 1,
@@ -37,7 +39,9 @@ pub const SortLanguage = enum(u8) {
     Instrumental = 5,
     Other = 14,
 };
+/// See [Modes](https://osu.ppy.sh/wiki/en/Game_mode)
 pub const SortOsuMode = enum { Osu, Taiko, Catch, Mania, Any };
+/// See [Genre and Languages](https://osu.ppy.sh/wiki/en/Beatmap/Genre_and_language)
 pub const SearchGenre = enum(u8) {
     Any = 0,
     Unspecified = 1,
@@ -56,6 +60,8 @@ pub const SearchGenre = enum(u8) {
 };
 
 /// Beatmapsets tags
+///
+/// See also [Song setup](https://osu.ppy.sh/wiki/en/Client/Beatmap_editor/Song_setup)
 pub const Tag = enum { Stream };
 
 pub const Covers = struct {
