@@ -106,6 +106,44 @@ pub const Beatmap = struct {
     url: []const u8,
     checksum: ?[]const u8 = null,
     max_combo: ?u32 = null,
+
+    pub fn get_beatmap(allocator: std.mem.Allocator, client: *std.http.Client, tkn: *const authorization.Token, id: u32) !Beatmap {
+        const path = "https://osu.ppy.sh/api/v2/beatmaps/";
+        var modified_url: []const u8 = undefined;
+        var buffer: [1024]u8 = undefined;
+
+        const token_slice = std.fmt.bufPrint(&buffer, "{s} {s}", .{ tkn.token_type, tkn.access_token }) catch {
+            std.log.err("Authorization token buffer less then token", .{});
+            return SearchBeatmapsetsError.NoSpaceLeft;
+        };
+
+        var token: [1024]u8 = undefined;
+        const token_len = token_slice.len;
+
+        @memcpy(token[0..token_len], token_slice);
+
+        const headers = &[_]std.http.Header{
+            .{
+                .name = "Accept",
+                .value = "application/json",
+            },
+            .{
+                .name = "Content-Type",
+                .value = "application/json",
+            },
+            .{
+                .name = "Authorization",
+                .value = token[0..token_len],
+            },
+        };
+
+        buffer = undefined;
+
+        modified_url = try std.fmt.bufPrint(&buffer, "{s}{}", .{ path, id });
+
+        const value = try http_ext.fetch_with_json(Beatmap, client, allocator, modified_url, headers);
+        return value.value;
+    }
 };
 
 /// See wiki [beatmap](https://osu.ppy.sh/wiki/en/Beatmap)
@@ -275,6 +313,33 @@ test "Beatmapset authorized request" {
         );
 
         try std.testing.expectEqual(50, beatmapsets.beatmapsets.len);
+    } else {
+        std.log.err("OSU_API_TOKEN variable is empty. For tests you need get token from osu api", .{});
+        return error.TokenUnavailable;
+    }
+}
+
+test "Receive beatmap by id" {
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+    var env = try std.testing.environ.createMap(allocator);
+    defer env.deinit();
+
+    const tkn = env.get("OSU_API_TOKEN");
+
+    var http_client = std.http.Client{ .allocator = allocator, .io = io };
+
+    if (tkn) |token| {
+        const structed_token = authorization.Token{
+            .access_token = token,
+            .token_type = "Bearer",
+            .expires_in = 0,
+            .refresh_token = null,
+        };
+
+        const beatmap = try Beatmap.get_beatmap(allocator, &http_client, &structed_token, 33502);
+
+        try std.testing.expectEqual(8023, beatmap.beatmapset_id);
     } else {
         std.log.err("OSU_API_TOKEN variable is empty. For tests you need get token from osu api", .{});
         return error.TokenUnavailable;
