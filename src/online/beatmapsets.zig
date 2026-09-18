@@ -260,9 +260,9 @@ pub const BeatmapsetSearch = struct {
             const queries: []const http_ext.Query = &.{
                 .{ .v = @tagName(search_info.categ), .k = "s" },
                 .{ .v = @tagName(search_info.criteria), .k = "sort" },
-                .{ .v = try str.from_u8(&language, @intFromEnum(search_info.lang)), .k = "l" },
-                .{ .v = try str.from_u8(&genre, @intFromEnum(search_info.genre)), .k = "g" },
-                .{ .v = try str.from_u8(&mode, @intFromEnum(search_info.mode)), .k = "m" },
+                .{ .v = try str.from(u8, &language, @intFromEnum(search_info.lang)), .k = "l" },
+                .{ .v = try str.from(u8, &genre, @intFromEnum(search_info.genre)), .k = "g" },
+                .{ .v = try str.from(u8, &mode, @intFromEnum(search_info.mode)), .k = "m" },
                 .{ .v = search_info.query, .k = "q" },
             };
             modified_url = try http_ext.append_query(&buffer, path, queries);
