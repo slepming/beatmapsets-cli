@@ -257,7 +257,6 @@ pub const BeatmapsetSearch = struct {
         var genre: [3]u8 = undefined;
 
         if (search) |search_info| {
-            std.log.debug("query: {s}", .{search.?.query});
             const queries: []const http_ext.Query = &.{
                 .{ .v = @tagName(search_info.categ), .k = "s" },
                 .{ .v = @tagName(search_info.criteria), .k = "sort" },
@@ -270,8 +269,6 @@ pub const BeatmapsetSearch = struct {
         } else {
             modified_url = path;
         }
-
-        std.log.debug("request url {s}", .{modified_url});
 
         const value = try http_ext.fetch_with_json(BeatmapsetSearch, client, allocator, modified_url, headers);
         return value.value;

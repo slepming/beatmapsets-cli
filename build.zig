@@ -26,6 +26,8 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const zigzag = b.dependency("zigzag", .{ .target = target, .optimize = optimize });
+
     const args_mod = b.dependency("args", .{ .target = target, .optimize = optimize });
 
     // This creates a module, which represents a collection of source files alongside
@@ -154,6 +156,7 @@ pub fn build(b: *std.Build) void {
 
     exe.root_module.addImport("httpz", httpz.module("httpz"));
     exe.root_module.addImport("args", args_mod.module("args"));
+    exe.root_module.addImport("zigzag", zigzag.module("zigzag"));
 
     // Just like flags, top level steps are also listed in the `--help` menu.
     //

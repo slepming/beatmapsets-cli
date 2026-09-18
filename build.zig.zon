@@ -44,6 +44,10 @@
             .url = "https://github.com/muhammad-fiaz/args.zig/archive/refs/tags/0.0.9.tar.gz",
             .hash = "args-0.0.9-8hzgbh4KCgB9UYVNvr6R_GmZgq7j1DpV2kGcqn3F36Q1",
         },
+        .zigzag = .{
+            .url = "git+https://github.com/meszmate/zigzag?ref=main#0a09aa484719a5257cb87dd0f09b4f7e81adcd5b",
+            .hash = "zigzag-0.1.6-YXwYS7UBEwAOOl0w7ju033G2mqu034VzFPp3eMoQJukY",
+        },
     },
     .paths = .{
         "build.zig",
