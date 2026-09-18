@@ -26,8 +26,6 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
-    const zigzag = b.dependency("zigzag", .{ .target = target, .optimize = optimize });
-
     const args_mod = b.dependency("args", .{ .target = target, .optimize = optimize });
 
     // This creates a module, which represents a collection of source files alongside
@@ -154,9 +152,20 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_mod_tests.step);
     test_step.dependOn(&run_exe_tests.step);
 
+    // OPTIONS
+    const enable_tui = b.option(bool, "enable-tui", "Enable tui interface compatibility") orelse false;
+    const options = b.addOptions();
+
+    options.addOption(bool, "enable_tui", enable_tui);
+
+    exe.root_module.addOptions("config", options);
     exe.root_module.addImport("httpz", httpz.module("httpz"));
     exe.root_module.addImport("args", args_mod.module("args"));
-    exe.root_module.addImport("zigzag", zigzag.module("zigzag"));
+
+    if (enable_tui) {
+        const zigzag = b.dependency("zigzag", .{ .target = target, .optimize = optimize });
+        exe.root_module.addImport("zigzag", zigzag.module("zigzag"));
+    }
 
     // Just like flags, top level steps are also listed in the `--help` menu.
     //
