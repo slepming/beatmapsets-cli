@@ -6,7 +6,7 @@ const Io = std.Io;
 
 pub const DESCRIPTION: []const u8 = "Simplest osu! api v2 wrapper with cli";
 pub const NAME: []const u8 = "beatmapsets-cli";
-pub const VERSION: []const u8 = "0.0.1";
+pub const VERSION: []const u8 = "0.0.2";
 pub const PORT: u32 = 3000;
 
 pub fn main(init: std.process.Init) !void {
@@ -68,7 +68,7 @@ pub fn main(init: std.process.Init) !void {
             try search_beatmapsets_f(io, allocator, q, client_secret, client_id, user_authorization);
         }
     } else {
-        if (config.enable_tui) {
+        if (config.disable_tui) {
             const zz = @import("zigzag");
             const tui = @import("tui.zig");
             var program = zz.Program(tui.Model).initWithOptions(allocator, io, init.environ_map, .{ .fps = 29, .title = NAME });

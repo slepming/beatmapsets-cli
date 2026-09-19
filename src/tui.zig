@@ -1,11 +1,13 @@
 const zz = @import("zigzag");
 const std = @import("std");
+const authorization = @import("beatmapsets_cli").token;
 const main = @import("main.zig");
 
 pub const Model = struct {
     selected_panel: u8,
     table: zz.components.DataTable,
     error_message: ?[]const u8 = null,
+    current_token: ?authorization.Token = null,
 
     pub const Msg = union(enum) {
         key: zz.KeyEvent,
@@ -33,6 +35,21 @@ pub const Model = struct {
             .selected_panel = 0,
             .table = t,
         };
+
+        if (self.current_token == null) {
+            var http_client = std.http.Client{ .allocator = ctx.persistent_allocator, .io = ctx.io };
+            defer http_client.deinit();
+
+            const client_id_raw = std.c.getenv("OSU_API_CLIENT_ID") orelse return .{ .println = "OSU_API_CLIENT_ID is null" };
+            const client_secret_raw = std.c.getenv("OSU_API_CLIENT_SECRET") orelse return .{ .println = "OSU_API_CLIENT_SECRET is null" };
+
+            const client_id: []const u8 = std.mem.span(client_id_raw);
+            const client_secret: []const u8 = std.mem.span(client_secret_raw);
+
+            self.current_token = main.authorization(ctx.io, ctx.persistent_allocator, client_secret, std.fmt.parseInt(u64, client_id, 10) catch 0, false) catch {
+                return .{ .println = "Token invalid" };
+            };
+        }
         return .none;
     }
 
@@ -47,6 +64,7 @@ pub const Model = struct {
                         table_rows.clearAndFree(ctx.persistent_allocator);
 
                         var http_client = std.http.Client{ .allocator = ctx.persistent_allocator, .io = ctx.io };
+                        defer http_client.deinit();
 
                         const client_id_raw = std.c.getenv("OSU_API_CLIENT_ID") orelse return .{ .println = "OSU_API_CLIENT_ID is null" };
                         const client_secret_raw = std.c.getenv("OSU_API_CLIENT_SECRET") orelse return .{ .println = "OSU_API_CLIENT_SECRET is null" };
@@ -134,7 +152,14 @@ pub const Model = struct {
         // -- Render each panel into styled boxes --
 
         // Header
-        const header = renderPanel(alloc, "beatmapsets-cli TUI", rows[0].width, rows[0].height, zz.Color.brightMagenta, true);
+        const header = renderPanel(
+            alloc,
+            std.fmt.allocPrint(alloc, "beatmapsets-cli TUI {s}", .{main.VERSION}) catch "",
+            rows[0].width,
+            rows[0].height,
+            zz.Color.brightMagenta,
+            true,
+        );
 
         // Sidebar
         const sidebar_items =

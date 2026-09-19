@@ -153,16 +153,16 @@ pub fn build(b: *std.Build) void {
     test_step.dependOn(&run_exe_tests.step);
 
     // OPTIONS
-    const enable_tui = b.option(bool, "enable-tui", "Enable tui interface compatibility") orelse false;
+    const disable_tui = !(b.option(bool, "disable-tui", "Disable tui interface compatibility") orelse false);
     const options = b.addOptions();
 
-    options.addOption(bool, "enable_tui", enable_tui);
+    options.addOption(bool, "disable_tui", disable_tui);
 
     exe.root_module.addOptions("config", options);
     exe.root_module.addImport("httpz", httpz.module("httpz"));
     exe.root_module.addImport("args", args_mod.module("args"));
 
-    if (enable_tui) {
+    if (disable_tui) {
         const zigzag = b.dependency("zigzag", .{ .target = target, .optimize = optimize });
         exe.root_module.addImport("zigzag", zigzag.module("zigzag"));
     }
