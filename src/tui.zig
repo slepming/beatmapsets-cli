@@ -2,7 +2,7 @@ const zz = @import("zigzag");
 const std = @import("std");
 const main = @import("main.zig");
 
-const Model = struct {
+pub const Model = struct {
     selected_panel: u8,
     table: zz.components.DataTable,
     error_message: ?[]const u8 = null,
