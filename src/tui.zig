@@ -90,25 +90,25 @@ pub const Model = struct {
                     '1' => self.selected_panel = 0,
                     '2' => {
                         self.selected_panel = 1;
-                        table_rows.clearAndFree(ctx.persistent_allocator);
+                        table_rows.clearAndFree(ctx.allocator);
 
-                        var http_client = std.http.Client{ .allocator = ctx.persistent_allocator, .io = ctx.io };
+                        var http_client = std.http.Client{ .allocator = ctx.allocator, .io = ctx.io };
                         defer http_client.deinit();
 
                         if (self.current_token) |token| {
-                            const beatmapsets = main.api.beatmapsets.BeatmapsetSearch.request(ctx.persistent_allocator, &http_client, &token, null) catch {
+                            const beatmapsets = main.api.beatmapsets.BeatmapsetSearch.request(ctx.allocator, &http_client, &token, null) catch {
                                 self.error_message = "Search beatmapset request error";
                                 return .quit;
                             };
 
                             for (beatmapsets.beatmapsets) |beatmapset| {
-                                const row = ctx.persistent_allocator.create([7][]const u8) catch {
+                                const row = ctx.allocator.create([7][]const u8) catch {
                                     self.error_message = "Out of memory error";
                                     return .quit;
                                 };
 
-                                const beatmapset_id = std.fmt.allocPrint(ctx.persistent_allocator, "{d}", .{beatmapset.id}) catch "out of memory";
-                                const beatmapset_bpm = std.fmt.allocPrint(ctx.persistent_allocator, "{any}", .{beatmapset.bpm}) catch "out of memory";
+                                const beatmapset_id = std.fmt.allocPrint(ctx.allocator, "{d}", .{beatmapset.id}) catch "out of memory";
+                                const beatmapset_bpm = std.fmt.allocPrint(ctx.allocator, "{any}", .{beatmapset.bpm}) catch "out of memory";
 
                                 row.* = .{
                                     beatmapset_id,
@@ -121,7 +121,7 @@ pub const Model = struct {
                                 };
 
                                 table_rows.append(
-                                    ctx.persistent_allocator,
+                                    ctx.allocator,
                                     row,
                                 ) catch return .quit;
                             }
