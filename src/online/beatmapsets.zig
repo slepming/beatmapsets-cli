@@ -8,7 +8,7 @@ pub const SearchBeatmapsetsError = std.fmt.BufPrintError || http_ext.HttpStatusE
 pub const BeatmapsetSearchQueryOptions = struct {
     query: []const u8 = "",
     /// Currently unsupport
-    tags: ?[]Tag = null,
+    tags: ?[]const u8 = null,
     lang: SortLanguage = SortLanguage.Any,
     categ: SearchCategory = SearchCategory.Any,
     criteria: SortCriteria = SortCriteria.Ranked,
@@ -58,11 +58,6 @@ pub const SearchGenre = enum(u8) {
     Folk = 13,
     Jazz = 14,
 };
-
-/// Beatmapsets tags
-///
-/// See also [Song setup](https://osu.ppy.sh/wiki/en/Client/Beatmap_editor/Song_setup)
-pub const Tag = enum { Stream };
 
 pub const Covers = struct {
     cover: []const u8,
