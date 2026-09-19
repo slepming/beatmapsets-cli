@@ -8,6 +8,7 @@ pub const Model = struct {
     table: zz.components.DataTable,
     error_message: ?[]const u8 = null,
     current_token: ?authorization.Token = null,
+    error_limit: u8 = 3,
 
     pub const Msg = union(enum) {
         key: zz.KeyEvent,
@@ -37,20 +38,48 @@ pub const Model = struct {
         };
 
         if (self.current_token == null) {
-            var http_client = std.http.Client{ .allocator = ctx.persistent_allocator, .io = ctx.io };
-            defer http_client.deinit();
-
-            const client_id_raw = std.c.getenv("OSU_API_CLIENT_ID") orelse return .{ .println = "OSU_API_CLIENT_ID is null" };
-            const client_secret_raw = std.c.getenv("OSU_API_CLIENT_SECRET") orelse return .{ .println = "OSU_API_CLIENT_SECRET is null" };
-
-            const client_id: []const u8 = std.mem.span(client_id_raw);
-            const client_secret: []const u8 = std.mem.span(client_secret_raw);
-
-            self.current_token = main.authorization(ctx.io, ctx.persistent_allocator, client_secret, std.fmt.parseInt(u64, client_id, 10) catch 0, false) catch {
-                return .{ .println = "Token invalid" };
-            };
+            try self.refresh_token(ctx.persistent_allocator, ctx.io);
         }
         return .none;
+    }
+
+    fn refresh_token(
+        self: *Model,
+        allocator: std.mem.Allocator,
+        io: std.Io,
+    ) !void {
+        self.refresh_token_env(allocator, io) catch |err| {
+            if (err == error.ClientInvalid) {
+                try self.refresh_token_tui(allocator, io);
+            }
+        };
+    }
+
+    fn refresh_token_tui(
+        _: *Model,
+        _: std.mem.Allocator,
+        _: std.Io,
+    ) !void {
+        return error.NotImplemented;
+    }
+
+    fn refresh_token_env(
+        self: *Model,
+        allocator: std.mem.Allocator,
+        io: std.Io,
+    ) !void {
+        var http_client = std.http.Client{ .allocator = allocator, .io = io };
+        defer http_client.deinit();
+
+        const client_id_raw = std.c.getenv("OSU_API_CLIENT_ID") orelse return error.ClientInvalid;
+        const client_secret_raw = std.c.getenv("OSU_API_CLIENT_SECRET") orelse return error.ClientInvalid;
+
+        const client_id: []const u8 = std.mem.span(client_id_raw);
+        const client_secret: []const u8 = std.mem.span(client_secret_raw);
+
+        self.current_token = main.authorization(io, allocator, client_secret, std.fmt.parseInt(u64, client_id, 10) catch 0, false) catch {
+            return error.TokenInvalid;
+        };
     }
 
     pub fn update(self: *Model, msg: Msg, ctx: *zz.Context) zz.Cmd(Msg) {
@@ -66,51 +95,47 @@ pub const Model = struct {
                         var http_client = std.http.Client{ .allocator = ctx.persistent_allocator, .io = ctx.io };
                         defer http_client.deinit();
 
-                        const client_id_raw = std.c.getenv("OSU_API_CLIENT_ID") orelse return .{ .println = "OSU_API_CLIENT_ID is null" };
-                        const client_secret_raw = std.c.getenv("OSU_API_CLIENT_SECRET") orelse return .{ .println = "OSU_API_CLIENT_SECRET is null" };
-
-                        const client_id: []const u8 = std.mem.span(client_id_raw);
-                        const client_secret: []const u8 = std.mem.span(client_secret_raw);
-
-                        const token = main.authorization(ctx.io, ctx.persistent_allocator, client_secret, std.fmt.parseInt(u64, client_id, 10) catch 0, false) catch {
-                            self.error_message = "Token invalid";
-                            return .quit;
-                        };
-
-                        const beatmapsets = main.api.beatmapsets.BeatmapsetSearch.request(ctx.persistent_allocator, &http_client, &token, null) catch {
-                            self.error_message = "Search beatmapset request error";
-                            return .quit;
-                        };
-
-                        for (beatmapsets.beatmapsets) |beatmapset| {
-                            const row = ctx.persistent_allocator.create([7][]const u8) catch {
-                                self.error_message = "Out of memory error";
+                        if (self.current_token) |token| {
+                            const beatmapsets = main.api.beatmapsets.BeatmapsetSearch.request(ctx.persistent_allocator, &http_client, &token, null) catch {
+                                self.error_message = "Search beatmapset request error";
                                 return .quit;
                             };
 
-                            const beatmapset_id = std.fmt.allocPrint(ctx.persistent_allocator, "{d}", .{beatmapset.id}) catch "out of memory";
-                            const beatmapset_bpm = std.fmt.allocPrint(ctx.persistent_allocator, "{any}", .{beatmapset.bpm}) catch "out of memory";
+                            for (beatmapsets.beatmapsets) |beatmapset| {
+                                const row = ctx.persistent_allocator.create([7][]const u8) catch {
+                                    self.error_message = "Out of memory error";
+                                    return .quit;
+                                };
 
-                            row.* = .{
-                                beatmapset_id,
-                                beatmapset.title,
-                                beatmapset.artist,
-                                beatmapset.creator,
-                                beatmapset.status,
-                                beatmapset_bpm,
-                                if (beatmapset.anime_cover) "Yes" else "No",
+                                const beatmapset_id = std.fmt.allocPrint(ctx.persistent_allocator, "{d}", .{beatmapset.id}) catch "out of memory";
+                                const beatmapset_bpm = std.fmt.allocPrint(ctx.persistent_allocator, "{any}", .{beatmapset.bpm}) catch "out of memory";
+
+                                row.* = .{
+                                    beatmapset_id,
+                                    beatmapset.title,
+                                    beatmapset.artist,
+                                    beatmapset.creator,
+                                    beatmapset.status,
+                                    beatmapset_bpm,
+                                    if (beatmapset.anime_cover) "Yes" else "No",
+                                };
+
+                                table_rows.append(
+                                    ctx.persistent_allocator,
+                                    row,
+                                ) catch return .quit;
+                            }
+
+                            self.table.setRows(table_rows.items) catch {
+                                self.error_message = "Setting rows for table error";
+                                return .quit;
                             };
-
-                            table_rows.append(
-                                ctx.persistent_allocator,
-                                row,
-                            ) catch return .quit;
+                        } else {
+                            self.refresh_token(ctx.persistent_allocator, ctx.io) catch {
+                                self.error_message = "Token invalid";
+                                return .quit;
+                            };
                         }
-
-                        self.table.setRows(table_rows.items) catch {
-                            self.error_message = "Setting rows for table error";
-                            return .quit;
-                        };
                     },
                     else => self.table.handleKey(k),
                 },
