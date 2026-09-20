@@ -3,9 +3,15 @@ const std = @import("std");
 const authorization = @import("beatmapsets_cli").token;
 const main = @import("main.zig");
 
+const Focus = enum {
+    SearchBeatmapsetTable,
+    SearchBeatmapsetTextArea,
+};
+
 pub const Model = struct {
     selected_panel: u8,
-    table: zz.components.DataTable,
+    beatmapset_table: zz.components.DataTable,
+    beatmapset_query_text_area: zz.components.TextArea,
     error_message: ?[]const u8 = null,
     current_token: ?authorization.Token = null,
     error_limit: u8 = 3,
@@ -32,14 +38,20 @@ pub const Model = struct {
         try t.setRows(table_rows.items);
         t.setSize(60, 15);
         t.setFrozenColumns(2);
+
+        var query_text_area = zz.components.TextArea.init(ctx.persistent_allocator);
+        query_text_area.placeholder = "Query";
+
         self.* = .{
             .selected_panel = 0,
-            .table = t,
+            .beatmapset_table = t,
+            .beatmapset_query_text_area = query_text_area,
         };
 
         if (self.current_token == null) {
             try self.refresh_token(ctx.persistent_allocator, ctx.io);
         }
+
         return .none;
     }
 
@@ -126,7 +138,7 @@ pub const Model = struct {
                                 ) catch return .quit;
                             }
 
-                            self.table.setRows(table_rows.items) catch {
+                            self.beatmapset_table.setRows(table_rows.items) catch {
                                 self.error_message = "Setting rows for table error";
                                 return .quit;
                             };
@@ -137,7 +149,7 @@ pub const Model = struct {
                             };
                         }
                     },
-                    else => self.table.handleKey(k),
+                    else => self.beatmapset_table.handleKey(k),
                 },
                 .tab => {
                     self.selected_panel = (self.selected_panel + 1) % 3;
@@ -154,7 +166,8 @@ pub const Model = struct {
         const w: u16 = @intCast(@min(ctx.width, std.math.maxInt(u16)));
         const h: u16 = @intCast(@min(ctx.height, std.math.maxInt(u16)));
 
-        var table_mut = @constCast(&self.table);
+        var table_mut = @constCast(&self.beatmapset_table);
+        var query_text_area_mut = @constCast(&self.beatmapset_query_text_area);
 
         // Outer vertical layout: header(3) | body(fill) | footer(3)
         const rows = zz.flex.layout(alloc, w, h, &.{
@@ -169,10 +182,15 @@ pub const Model = struct {
             .{ .constraint = .fill },
         }, .{ .direction = .row, .gap = 1 }) catch return "layout error";
 
-        table_mut.setSize(cols[1].width, cols[1].height - 10);
+        table_mut.setSize(cols[1].width, cols[1].height - 30);
         const table_view = table_mut.view(alloc) catch {
             return "The process of getting the table view caused an error";
         };
+
+        query_text_area_mut.setSize(cols[1].width, cols[1].height - (cols[1].height - 2));
+        const query_text_area_view = try query_text_area_mut.view(alloc);
+
+        const beatmapsets_content = try std.fmt.allocPrint(alloc, "{s}\n\n{s}", .{ query_text_area_view, table_view });
 
         // -- Render each panel into styled boxes --
 
@@ -196,9 +214,10 @@ pub const Model = struct {
         // Main content area
         const main_text = switch (self.selected_panel) {
             0 => main.DESCRIPTION,
-            1 => table_view,
+            1 => beatmapsets_content,
             else => "",
         };
+
         const main_panel = renderPanel(alloc, main_text, cols[1].width, cols[1].height, zz.Color.green, self.selected_panel == 1);
 
         // Footer
