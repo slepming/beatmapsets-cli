@@ -11,10 +11,11 @@ const Focus = enum {
 pub const Model = struct {
     selected_panel: u8,
     beatmapset_table: zz.components.DataTable,
-    beatmapset_query_text_area: zz.components.TextArea,
     error_message: ?[]const u8 = null,
     current_token: ?authorization.Token = null,
     error_limit: u8 = 3,
+    focus: Focus = .SearchBeatmapsetTextArea,
+    areas: std.StringHashMap(zz.components.TextArea),
 
     pub const Msg = union(enum) {
         key: zz.KeyEvent,
@@ -45,8 +46,10 @@ pub const Model = struct {
         self.* = .{
             .selected_panel = 0,
             .beatmapset_table = t,
-            .beatmapset_query_text_area = query_text_area,
+            .areas = .init(ctx.persistent_allocator),
         };
+
+        try self.areas.put("beatmapset_query_text_area", query_text_area);
 
         if (self.current_token == null) {
             try self.refresh_token(ctx.persistent_allocator, ctx.io);
@@ -55,107 +58,92 @@ pub const Model = struct {
         return .none;
     }
 
-    fn refresh_token(
-        self: *Model,
-        allocator: std.mem.Allocator,
-        io: std.Io,
-    ) !void {
-        self.refresh_token_env(allocator, io) catch |err| {
-            if (err == error.ClientInvalid) {
-                try self.refresh_token_tui(allocator, io);
-            }
-        };
-    }
-
-    fn refresh_token_tui(
-        _: *Model,
-        _: std.mem.Allocator,
-        _: std.Io,
-    ) !void {
-        return error.NotImplemented;
-    }
-
-    fn refresh_token_env(
-        self: *Model,
-        allocator: std.mem.Allocator,
-        io: std.Io,
-    ) !void {
-        var http_client = std.http.Client{ .allocator = allocator, .io = io };
-        defer http_client.deinit();
-
-        const client_id_raw = std.c.getenv("OSU_API_CLIENT_ID") orelse return error.ClientInvalid;
-        const client_secret_raw = std.c.getenv("OSU_API_CLIENT_SECRET") orelse return error.ClientInvalid;
-
-        const client_id: []const u8 = std.mem.span(client_id_raw);
-        const client_secret: []const u8 = std.mem.span(client_secret_raw);
-
-        self.current_token = main.authorization(io, allocator, client_secret, std.fmt.parseInt(u64, client_id, 10) catch 0, false) catch {
-            return error.TokenInvalid;
-        };
-    }
-
     pub fn update(self: *Model, msg: Msg, ctx: *zz.Context) zz.Cmd(Msg) {
         switch (msg) {
-            .key => |k| switch (k.key) {
-                .char => |c| switch (c) {
-                    'q' => return .quit,
-                    '1' => self.selected_panel = 0,
-                    '2' => {
-                        self.selected_panel = 1;
-                        table_rows.clearAndFree(ctx.allocator);
+            .key => |k| {
+                if (k.modifiers.ctrl) {
+                    switch (k.key) {
+                        .char => |c| switch (c) {
+                            'q' => return .quit,
+                            'o' => self.selected_panel = 0,
+                            '2' => { // in Ghostty ctrl + 2 reserved
+                                self.selected_panel = 1;
+                                table_rows.clearAndFree(ctx.allocator);
 
-                        var http_client = std.http.Client{ .allocator = ctx.allocator, .io = ctx.io };
-                        defer http_client.deinit();
+                                var http_client = std.http.Client{ .allocator = ctx.allocator, .io = ctx.io };
+                                defer http_client.deinit();
 
-                        if (self.current_token) |token| {
-                            const beatmapsets = main.api.beatmapsets.BeatmapsetSearch.request(ctx.allocator, &http_client, &token, null) catch {
-                                self.error_message = "Search beatmapset request error";
-                                return .quit;
-                            };
+                                if (self.current_token) |token| {
+                                    const beatmapsets = main.api.beatmapsets.BeatmapsetSearch.request(ctx.allocator, &http_client, &token, null) catch {
+                                        self.error_message = "Search beatmapset request error";
+                                        return .quit;
+                                    };
 
-                            for (beatmapsets.beatmapsets) |beatmapset| {
-                                const row = ctx.allocator.create([7][]const u8) catch {
-                                    self.error_message = "Out of memory error";
-                                    return .quit;
-                                };
+                                    for (beatmapsets.beatmapsets) |beatmapset| {
+                                        const row = ctx.allocator.create([7][]const u8) catch {
+                                            self.error_message = "Out of memory error";
+                                            return .quit;
+                                        };
 
-                                const beatmapset_id = std.fmt.allocPrint(ctx.allocator, "{d}", .{beatmapset.id}) catch "out of memory";
-                                const beatmapset_bpm = std.fmt.allocPrint(ctx.allocator, "{any}", .{beatmapset.bpm}) catch "out of memory";
+                                        const beatmapset_id = std.fmt.allocPrint(ctx.allocator, "{d}", .{beatmapset.id}) catch "out of memory";
+                                        const beatmapset_bpm = std.fmt.allocPrint(ctx.allocator, "{any}", .{beatmapset.bpm}) catch "out of memory";
 
-                                row.* = .{
-                                    beatmapset_id,
-                                    beatmapset.title,
-                                    beatmapset.artist,
-                                    beatmapset.creator,
-                                    beatmapset.status,
-                                    beatmapset_bpm,
-                                    if (beatmapset.anime_cover) "Yes" else "No",
-                                };
+                                        row.* = .{
+                                            beatmapset_id,
+                                            beatmapset.title,
+                                            beatmapset.artist,
+                                            beatmapset.creator,
+                                            beatmapset.status,
+                                            beatmapset_bpm,
+                                            if (beatmapset.anime_cover) "Yes" else "No",
+                                        };
 
-                                table_rows.append(
-                                    ctx.allocator,
-                                    row,
-                                ) catch return .quit;
+                                        table_rows.append(
+                                            ctx.allocator,
+                                            row,
+                                        ) catch return .quit;
+                                    }
+
+                                    self.beatmapset_table.setRows(table_rows.items) catch {
+                                        self.error_message = "Setting rows for table error";
+                                        return .quit;
+                                    };
+                                } else {
+                                    self.refresh_token(ctx.persistent_allocator, ctx.io) catch {
+                                        self.error_message = "Token invalid";
+                                        return .quit;
+                                    };
+                                }
+                            },
+                            else => {
+                                return .none;
+                            },
+                        },
+                        else => {
+                            return .none;
+                        },
+                    }
+                }
+                switch (k.key) {
+                    .char => {
+                        if (self.selected_panel == 1) {
+                            switch (self.focus) {
+                                .SearchBeatmapsetTextArea => {
+                                    const _area = self.areas.getPtr("beatmapset_query_text_area");
+                                    if (_area) |area| {
+                                        area.handleKey(k);
+                                    }
+                                },
+                                .SearchBeatmapsetTable => self.beatmapset_table.handleKey(k),
                             }
-
-                            self.beatmapset_table.setRows(table_rows.items) catch {
-                                self.error_message = "Setting rows for table error";
-                                return .quit;
-                            };
-                        } else {
-                            self.refresh_token(ctx.persistent_allocator, ctx.io) catch {
-                                self.error_message = "Token invalid";
-                                return .quit;
-                            };
                         }
                     },
-                    else => self.beatmapset_table.handleKey(k),
-                },
-                .tab => {
-                    self.selected_panel = (self.selected_panel + 1) % 3;
-                },
-                .escape => return .quit,
-                else => {},
+                    .tab => {
+                        self.selected_panel = (self.selected_panel + 1) % 3;
+                    },
+                    .escape => return .quit,
+                    else => {},
+                }
             },
         }
         return .none;
@@ -167,7 +155,7 @@ pub const Model = struct {
         const h: u16 = @intCast(@min(ctx.height, std.math.maxInt(u16)));
 
         var table_mut = @constCast(&self.beatmapset_table);
-        var query_text_area_mut = @constCast(&self.beatmapset_query_text_area);
+        var query_text_area_mut = @constCast(&self.areas.get("beatmapset_query_text_area").?);
 
         // Outer vertical layout: header(3) | body(fill) | footer(3)
         const rows = zz.flex.layout(alloc, w, h, &.{
@@ -251,5 +239,60 @@ pub const Model = struct {
         s = s.width(inner_w);
         s = s.height(inner_h);
         return s.render(alloc, content) catch content;
+    }
+
+    fn refresh_token(
+        self: *Model,
+        allocator: std.mem.Allocator,
+        io: std.Io,
+    ) !void {
+        self.refresh_token_env(allocator, io) catch |err| {
+            if (err == error.ClientInvalid) {
+                self.selected_panel = std.math.maxInt(u8);
+            }
+        };
+    }
+
+    fn refresh_token_env(
+        self: *Model,
+        allocator: std.mem.Allocator,
+        io: std.Io,
+    ) !void {
+        var http_client = std.http.Client{ .allocator = allocator, .io = io };
+        defer http_client.deinit();
+
+        const client_id_raw = std.c.getenv("OSU_API_CLIENT_ID") orelse return error.ClientInvalid;
+        const client_secret_raw = std.c.getenv("OSU_API_CLIENT_SECRET") orelse return error.ClientInvalid;
+
+        const client_id: []const u8 = std.mem.span(client_id_raw);
+        const client_secret: []const u8 = std.mem.span(client_secret_raw);
+
+        self.current_token = main.authorization(io, allocator, client_secret, std.fmt.parseInt(u64, client_id, 10) catch 0, false) catch {
+            return error.TokenInvalid;
+        };
+    }
+
+    fn refresh_token_tui(self: *Model, alloc: std.mem.Allocator, w: u16, h: u16) ![]const u8 {
+        const content = zz.flex.layout(
+            alloc,
+            w,
+            h,
+            &.{
+                .{ .constraint = .{ .percentage = 40 } },
+                .{ .constraint = .{ .percentage = 40 } },
+                .{ .constraint = .{.fill} },
+            },
+            .{ .direction = .row, .gap = 1 },
+        ) catch return "layout error";
+
+        var client_id_area = zz.components.TextArea.init(alloc);
+        client_id_area.setSize(content[0].width, content[0].height);
+        client_id_area.placeholder = "id";
+        var client_secret_area = zz.components.TextArea.init(alloc);
+        client_secret_area.setSize(content[1].width, content[1].height);
+        client_secret_area.placeholder = "secret";
+
+        self.areas.put("client_id", client_id_area);
+        self.areas.put("client_secret", client_secret_area);
     }
 };
