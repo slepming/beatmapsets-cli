@@ -256,6 +256,8 @@ pub const BeatmapsetSearch = struct {
             var criteria_buffer: [128]u8 = undefined;
 
             var queries: std.ArrayList(http_ext.Query) = try .initCapacity(allocator, 4);
+            defer queries.deinit(allocator);
+
             try queries.append(
                 allocator,
                 .{ .v = std.ascii.lowerString(&categ_buffer, @tagName(search_info.categ)), .k = "s" },
@@ -309,7 +311,7 @@ test "Beatmapset unauthorized requests" {
     try std.testing.expectError(SearchBeatmapsetsError.Unauthorization, BeatmapsetSearch.request(allocator, &client, &tkn, null));
 }
 
-test "Beatmapset authorized request" {
+test "Search beatmapset authorized request without options" {
     const allocator = std.testing.allocator;
 
     const io = std.testing.io;
@@ -329,14 +331,56 @@ test "Beatmapset authorized request" {
             .refresh_token = null,
         };
 
-        const beatmapsets = try BeatmapsetSearch.request(
+        const response = try BeatmapsetSearch.request(
             allocator,
             &http_client,
             &structed_token,
             null,
         );
 
-        try std.testing.expectEqual(50, beatmapsets.beatmapsets.len);
+        if (response.beatmapsets) |beatmapsets| try std.testing.expectEqual(50, beatmapsets.len);
+    } else {
+        std.log.err("OSU_API_TOKEN variable is empty. For tests you need get token from osu api", .{});
+        return error.TokenUnavailable;
+    }
+}
+
+test "Search beatmapset authorized request with options" {
+    const allocator = std.testing.allocator;
+
+    const io = std.testing.io;
+    var env = try std.testing.environ.createMap(allocator);
+    defer env.deinit();
+
+    const tkn = env.get("OSU_API_TOKEN");
+
+    var http_client = std.http.Client{ .allocator = allocator, .io = io };
+    defer http_client.deinit();
+
+    if (tkn) |token| {
+        const structed_token = authorization.Token{
+            .access_token = token,
+            .token_type = "Bearer",
+            .expires_in = 0,
+            .refresh_token = null,
+        };
+
+        const options: BeatmapsetSearchQueryOptions = .{
+            .categ = .Loved,
+            .criteria = .Relevance,
+            .genre = .Metal,
+            .lang = .Russian,
+            .mode = .Osu,
+        };
+
+        const response = try BeatmapsetSearch.request(
+            allocator,
+            &http_client,
+            &structed_token,
+            options,
+        );
+
+        if (response.beatmapsets) |beatmapsets| try std.testing.expect(beatmapsets.len > 0);
     } else {
         std.log.err("OSU_API_TOKEN variable is empty. For tests you need get token from osu api", .{});
         return error.TokenUnavailable;
