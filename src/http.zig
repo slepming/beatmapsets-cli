@@ -111,7 +111,7 @@ pub fn fetch_with_json(
     return parsed;
 }
 
-test "http append query" {
+test "http_append_query" {
     var buffer: [1024]u8 = undefined;
 
     const paths: [2][]const u8 = .{

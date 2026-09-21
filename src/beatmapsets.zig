@@ -1,7 +1,7 @@
 const std = @import("std");
 const authorization = @import("token.zig");
 const http_ext = @import("http.zig");
-const str = @import("../str.zig");
+const str = @import("str.zig");
 
 pub const SearchBeatmapsetsError = std.fmt.BufPrintError || http_ext.HttpStatusError || std.http.Client.FetchError;
 
@@ -297,7 +297,7 @@ pub const BeatmapsetSearch = struct {
     }
 };
 
-test "Beatmapset unauthorized requests" {
+test "beatmapset_unauthorized_requests" {
     const allocator = std.testing.allocator;
     var threaded = std.Io.Threaded.init(allocator, .{});
     var client = std.http.Client{
@@ -311,7 +311,7 @@ test "Beatmapset unauthorized requests" {
     try std.testing.expectError(SearchBeatmapsetsError.Unauthorization, BeatmapsetSearch.request(allocator, &client, &tkn, null));
 }
 
-test "Search beatmapset authorized request without options" {
+test "search_beatmapset_authorized_request_without_options" {
     const allocator = std.testing.allocator;
 
     const io = std.testing.io;
@@ -345,7 +345,7 @@ test "Search beatmapset authorized request without options" {
     }
 }
 
-test "Search beatmapset authorized request with options" {
+test "search_beatmapset_authorized_request_with_options" {
     const allocator = std.testing.allocator;
 
     const io = std.testing.io;
@@ -387,7 +387,7 @@ test "Search beatmapset authorized request with options" {
     }
 }
 
-test "Receive beatmap by id" {
+test "receive_beatmap_by_id" {
     const allocator = std.testing.allocator;
     const io = std.testing.io;
     var env = try std.testing.environ.createMap(allocator);
