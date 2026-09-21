@@ -66,54 +66,9 @@ pub const Model = struct {
                         .char => |c| switch (c) {
                             'q' => return .quit,
                             'o' => self.selected_panel = 0,
-                            '2' => { // in Ghostty ctrl + 2 reserved
+                            's' => {
                                 self.selected_panel = 1;
-                                table_rows.clearAndFree(ctx.allocator);
-
-                                var http_client = std.http.Client{ .allocator = ctx.allocator, .io = ctx.io };
-                                defer http_client.deinit();
-
-                                if (self.current_token) |token| {
-                                    const beatmapsets = main.api.beatmapsets.BeatmapsetSearch.request(ctx.allocator, &http_client, &token, null) catch {
-                                        self.error_message = "Search beatmapset request error";
-                                        return .quit;
-                                    };
-
-                                    for (beatmapsets.beatmapsets) |beatmapset| {
-                                        const row = ctx.allocator.create([7][]const u8) catch {
-                                            self.error_message = "Out of memory error";
-                                            return .quit;
-                                        };
-
-                                        const beatmapset_id = std.fmt.allocPrint(ctx.allocator, "{d}", .{beatmapset.id}) catch "out of memory";
-                                        const beatmapset_bpm = std.fmt.allocPrint(ctx.allocator, "{any}", .{beatmapset.bpm}) catch "out of memory";
-
-                                        row.* = .{
-                                            beatmapset_id,
-                                            beatmapset.title,
-                                            beatmapset.artist,
-                                            beatmapset.creator,
-                                            beatmapset.status,
-                                            beatmapset_bpm,
-                                            if (beatmapset.anime_cover) "Yes" else "No",
-                                        };
-
-                                        table_rows.append(
-                                            ctx.allocator,
-                                            row,
-                                        ) catch return .quit;
-                                    }
-
-                                    self.beatmapset_table.setRows(table_rows.items) catch {
-                                        self.error_message = "Setting rows for table error";
-                                        return .quit;
-                                    };
-                                } else {
-                                    self.refresh_token(ctx.persistent_allocator, ctx.io) catch {
-                                        self.error_message = "Token invalid";
-                                        return .quit;
-                                    };
-                                }
+                                self.search_beatmapsets(ctx) catch return .quit;
                             },
                             else => {
                                 return .none;
@@ -140,13 +95,64 @@ pub const Model = struct {
                     },
                     .tab => {
                         self.selected_panel = (self.selected_panel + 1) % 3;
+                        if (self.selected_panel == 1) self.search_beatmapsets(ctx) catch return .quit;
                     },
                     .escape => return .quit,
                     else => {},
                 }
             },
         }
+
         return .none;
+    }
+
+    fn search_beatmapsets(self: *Model, ctx: *zz.Context) !void {
+        table_rows.clearAndFree(ctx.allocator);
+
+        var http_client = std.http.Client{ .allocator = ctx.allocator, .io = ctx.io };
+        defer http_client.deinit();
+
+        if (self.current_token) |token| {
+            const beatmapsets = main.api.beatmapsets.BeatmapsetSearch.request(ctx.allocator, &http_client, &token, null) catch |err| {
+                self.error_message = "Search beatmapset request error";
+                return err;
+            };
+
+            for (beatmapsets.beatmapsets) |beatmapset| {
+                const row = ctx.allocator.create([7][]const u8) catch |err| {
+                    self.error_message = "Out of memory error";
+                    return err;
+                };
+
+                const beatmapset_id = std.fmt.allocPrint(ctx.allocator, "{d}", .{beatmapset.id}) catch "out of memory";
+                const beatmapset_bpm = std.fmt.allocPrint(ctx.allocator, "{any}", .{beatmapset.bpm}) catch "out of memory";
+
+                row.* = .{
+                    beatmapset_id,
+                    beatmapset.title,
+                    beatmapset.artist,
+                    beatmapset.creator,
+                    beatmapset.status,
+                    beatmapset_bpm,
+                    if (beatmapset.anime_cover) "Yes" else "No",
+                };
+
+                try table_rows.append(
+                    ctx.allocator,
+                    row,
+                );
+            }
+
+            self.beatmapset_table.setRows(table_rows.items) catch |err| {
+                self.error_message = "Setting rows for table error";
+                return err;
+            };
+        } else {
+            self.refresh_token(ctx.persistent_allocator, ctx.io) catch |err| {
+                self.error_message = "Token invalid";
+                return err;
+            };
+        }
     }
 
     pub fn view(self: *const Model, ctx: *const zz.Context) ![]const u8 {
@@ -170,12 +176,12 @@ pub const Model = struct {
             .{ .constraint = .fill },
         }, .{ .direction = .row, .gap = 1 }) catch return "layout error";
 
-        table_mut.setSize(cols[1].width, cols[1].height - 30);
+        table_mut.setSize(cols[1].width - cols[1].width / 10, cols[1].height - 30);
         const table_view = table_mut.view(alloc) catch {
             return "The process of getting the table view caused an error";
         };
 
-        query_text_area_mut.setSize(cols[1].width, cols[1].height - (cols[1].height - 2));
+        query_text_area_mut.setSize(cols[1].width - cols[1].width / 10, cols[1].height - (cols[1].height - 2));
         const query_text_area_view = try query_text_area_mut.view(alloc);
 
         const beatmapsets_content = try std.fmt.allocPrint(alloc, "{s}\n\n{s}", .{ query_text_area_view, table_view });

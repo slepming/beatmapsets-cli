@@ -6,7 +6,7 @@ const str = @import("../str.zig");
 pub const SearchBeatmapsetsError = std.fmt.BufPrintError || http_ext.HttpStatusError || std.http.Client.FetchError;
 
 pub const BeatmapsetSearchQueryOptions = struct {
-    query: []const u8 = "",
+    query: ?[]const u8 = null,
     /// Currently unsupport
     tags: ?[]const u8 = null,
     lang: SortLanguage = SortLanguage.Any,
@@ -196,7 +196,7 @@ pub const Cursor = struct { approved_date: i64, id: i64 };
 
 pub const BeatmapsetSearch = struct {
     /// Beatmapsets array from search
-    beatmapsets: []Beatmapset,
+    beatmapsets: ?[]Beatmapset,
     total: u64,
     @"error": ?[]const u8 = null,
     /// Sort parameter
@@ -252,15 +252,15 @@ pub const BeatmapsetSearch = struct {
         var genre: [3]u8 = undefined;
 
         if (search) |search_info| {
-            const queries: []const http_ext.Query = &.{
-                .{ .v = @tagName(search_info.categ), .k = "s" },
-                .{ .v = @tagName(search_info.criteria), .k = "sort" },
-                .{ .v = try str.from(u8, &language, @intFromEnum(search_info.lang)), .k = "l" },
-                .{ .v = try str.from(u8, &genre, @intFromEnum(search_info.genre)), .k = "g" },
-                .{ .v = try str.from(u8, &mode, @intFromEnum(search_info.mode)), .k = "m" },
-                .{ .v = search_info.query, .k = "q" },
-            };
-            modified_url = try http_ext.append_query(&buffer, path, queries);
+            var queries: std.ArrayList(http_ext.Query) = try .initCapacity(allocator, 4);
+            try queries.append(allocator, .{ .v = @tagName(search_info.categ), .k = "s" });
+            try queries.append(allocator, .{ .v = @tagName(search_info.criteria), .k = "sort" });
+            try queries.append(allocator, .{ .v = try str.from(u8, &language, @intFromEnum(search_info.lang)), .k = "l" });
+            try queries.append(allocator, .{ .v = try str.from(u8, &genre, @intFromEnum(search_info.genre)), .k = "g" });
+            try queries.append(allocator, .{ .v = try str.from(u8, &mode, @intFromEnum(search_info.mode)), .k = "m" });
+            if (search_info.query) |query| try queries.append(allocator, .{ .v = query, .k = "q" });
+
+            modified_url = try http_ext.append_query(&buffer, path, queries.items);
         } else {
             modified_url = path;
         }

@@ -39,7 +39,12 @@ pub fn main(init: std.process.Init) !void {
 
     try parser.addOption("search-beatmapsets", .{
         .short = 's',
-        .help = "Search terms",
+        .help = "Search beatmapsets",
+    });
+
+    try parser.addFlag("last-beatmapsets", .{
+        .short = 'l',
+        .help = "Last ranked beatmapsets",
     });
 
     // Parse command-line arguments from the process init context
@@ -66,6 +71,8 @@ pub fn main(init: std.process.Init) !void {
 
         if (search_beatmapsets) |q| {
             try search_beatmapsets_f(io, allocator, q, client_secret, client_id, user_authorization);
+        } else if (result.getBool("last-beatmapsets") orelse false) {
+            try search_beatmapsets_f(io, allocator, null, client_secret, client_id, user_authorization);
         }
     } else {
         if (config.disable_tui) {
@@ -81,7 +88,7 @@ pub fn main(init: std.process.Init) !void {
     }
 }
 
-fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8, client_secret: []const u8, client_id: u64, authorization_type: bool) !void {
+fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: ?[]const u8, client_secret: []const u8, client_id: u64, authorization_type: bool) !void {
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
     var token: api.token.Token = try authorization(io, allocator, client_secret, client_id, authorization_type);
@@ -92,10 +99,12 @@ fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8,
         .{ .query = q },
     );
 
-    const beatmapsets = beatmapset_s.beatmapsets;
+    const _beatmapsets = beatmapset_s.beatmapsets;
 
-    for (beatmapsets) |beatmap| {
-        std.log.debug("{s}", .{beatmap.title});
+    if (_beatmapsets) |beatmapsets| {
+        for (beatmapsets) |beatmap| {
+            std.log.debug("{s}", .{beatmap.title});
+        }
     }
 }
 
