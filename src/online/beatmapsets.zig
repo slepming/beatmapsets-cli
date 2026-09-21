@@ -204,8 +204,8 @@ pub const BeatmapsetSearch = struct {
     /// Recommended for user difficulty
     recommended_difficulty: ?[]const u8 = null,
     /// Cursor to next to new beatmapets page
-    cursor_string: []const u8,
-    cursor: Cursor,
+    cursor_string: ?[]const u8,
+    cursor: ?Cursor,
 
     /// Returns structure by search options
     ///
@@ -252,18 +252,43 @@ pub const BeatmapsetSearch = struct {
         var genre: [3]u8 = undefined;
 
         if (search) |search_info| {
+            var categ_buffer: [128]u8 = undefined;
+            var criteria_buffer: [128]u8 = undefined;
+
             var queries: std.ArrayList(http_ext.Query) = try .initCapacity(allocator, 4);
-            try queries.append(allocator, .{ .v = @tagName(search_info.categ), .k = "s" });
-            try queries.append(allocator, .{ .v = @tagName(search_info.criteria), .k = "sort" });
-            try queries.append(allocator, .{ .v = try str.from(u8, &language, @intFromEnum(search_info.lang)), .k = "l" });
-            try queries.append(allocator, .{ .v = try str.from(u8, &genre, @intFromEnum(search_info.genre)), .k = "g" });
-            try queries.append(allocator, .{ .v = try str.from(u8, &mode, @intFromEnum(search_info.mode)), .k = "m" });
-            if (search_info.query) |query| try queries.append(allocator, .{ .v = query, .k = "q" });
+            try queries.append(
+                allocator,
+                .{ .v = std.ascii.lowerString(&categ_buffer, @tagName(search_info.categ)), .k = "s" },
+            );
+            try queries.append(allocator, .{ .v = std.ascii.lowerString(&criteria_buffer, @tagName(search_info.criteria)), .k = "sort" });
+            if (search_info.lang != .Any) {
+                try queries.append(
+                    allocator,
+                    .{ .v = try str.from(u8, &language, @intFromEnum(search_info.lang)), .k = "l" },
+                );
+            }
+            if (search_info.genre != .Any) {
+                try queries.append(
+                    allocator,
+                    .{ .v = try str.from(u8, &genre, @intFromEnum(search_info.genre)), .k = "g" },
+                );
+            }
+            try queries.append(
+                allocator,
+                .{ .v = try str.from(u8, &mode, @intFromEnum(search_info.mode)), .k = "m" },
+            );
+
+            if (search_info.query) |query| try queries.append(
+                allocator,
+                .{ .v = query, .k = "q" },
+            );
 
             modified_url = try http_ext.append_query(&buffer, path, queries.items);
         } else {
             modified_url = path;
         }
+
+        std.log.debug("{s}", .{modified_url});
 
         const value = try http_ext.fetch_with_json(BeatmapsetSearch, client, allocator, modified_url, headers);
         return value.value;
