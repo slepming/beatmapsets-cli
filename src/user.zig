@@ -231,7 +231,7 @@ pub const User = struct {
     unread_pm_count: ?u32 = null,
     session_verified: ?bool = null,
 
-    fn get_user(allocator: std.mem.Allocator, client: *std.http.Client, tkn: *const auth.Token, user: UserOptions) !User {
+    pub fn get_user(allocator: std.mem.Allocator, client: *std.http.Client, tkn: *const auth.Token, user: UserOptions) !User {
         const path = "https://osu.ppy.sh/api/v2/users/";
         var modified_url: []const u8 = undefined;
         var buffer: [1024]u8 = undefined;
@@ -333,6 +333,11 @@ test "get_user_by_id" {
         };
 
         const user = try User.get_user(allocator, &http_client, &structed_token, .{ .id = 29155149 });
+        std.debug.print("DEBUG: Username ptr: {*}, len: {d}\n", .{ user.username.ptr, user.username.len });
+        std.debug.print(
+            "ptr = 0x{x}, len = {}\n",
+            .{ @intFromPtr(user.username.ptr), user.username.len },
+        );
 
         try std.testing.expectEqualStrings("slepming", user.username); // Segmentation fault on user.username when retreiving the index value
     } else {

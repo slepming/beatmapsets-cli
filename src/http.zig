@@ -87,8 +87,6 @@ pub fn fetch_with_json(
 
     const result_slice = result.written();
 
-    std.log.debug("{s}", .{result_slice});
-
     if (response.status == .unauthorized) {
         return HttpStatusError.Unauthorization;
     }
