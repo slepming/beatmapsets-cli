@@ -159,7 +159,7 @@ pub fn build(b: *std.Build) void {
     options.addOption(bool, "disable_tui", disable_tui);
 
     exe.root_module.addOptions("config", options);
-    exe.root_module.addImport("httpz", httpz.module("httpz"));
+    //exe.root_module.addImport("httpz", httpz.module("httpz"));
     exe.root_module.addImport("args", args_mod.module("args"));
 
     if (disable_tui) {
