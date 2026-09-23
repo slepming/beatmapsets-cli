@@ -65,12 +65,13 @@ pub fn append_query(buf: []u8, url_raw: []const u8, kv: []const Query) std.fmt.B
     );
 }
 
-pub fn fetch_with_json(
+pub fn fetch(
     comptime T: type,
     client: *std.http.Client,
     allocator: std.mem.Allocator,
     url: []const u8,
     headers: []const std.http.Header,
+    method: std.http.Method,
 ) !std.json.Parsed(T) {
     const uri = try std.Uri.parse(url);
 
@@ -81,7 +82,7 @@ pub fn fetch_with_json(
         .location = .{
             .uri = uri,
         },
-        .method = .GET,
+        .method = method,
         .extra_headers = headers,
         .response_writer = &result.writer,
     });

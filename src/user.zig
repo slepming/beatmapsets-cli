@@ -279,7 +279,7 @@ pub const User = struct {
             });
         } else return error.usernameAndIdEqualsNull;
 
-        const value = try http_ext.fetch_with_json(User, client, allocator, modified_url, headers);
+        const value = try http_ext.fetch(User, client, allocator, modified_url, headers, .GET);
 
         return value.value;
     }

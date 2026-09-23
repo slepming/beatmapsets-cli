@@ -1,13 +1,13 @@
+pub const api = @import("beatmapsets_cli");
 const std = @import("std");
 const zio = @import("zio");
-pub const api = @import("beatmapsets_cli");
 const args = @import("args");
 const config = @import("config");
 const Io = std.Io;
 
 pub const DESCRIPTION: []const u8 = "Simplest osu! api v2 wrapper with cli";
 pub const NAME: []const u8 = "beatmapsets-cli";
-pub const VERSION: []const u8 = "0.0.2";
+pub const VERSION: []const u8 = "0.0.3";
 pub const PORT: u32 = 3000;
 
 pub fn main(init: std.process.Init) !void {

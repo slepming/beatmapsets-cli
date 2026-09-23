@@ -222,7 +222,7 @@ pub const Model = struct {
         help_style = help_style.inline_style(true);
         const footer_text = try help_style.render(
             alloc,
-            std.fmt.allocPrint(alloc, "Tab: cycle panels  1/2/3: select panel  q: quit        {any} fps", .{ctx.fps()}) catch return "OUT OF MEMORY",
+            std.fmt.allocPrint(alloc, "Tab: cycle panels  C-s: search beatmapsets  C-q: quit        {any} fps", .{ctx.fps()}) catch return "OUT OF MEMORY",
         );
         const footer = renderPanel(alloc, footer_text, rows[2].width, rows[2].height, zz.Color.gray(8), false);
 

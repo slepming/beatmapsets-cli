@@ -290,7 +290,7 @@ pub const BeatmapsetSearch = struct {
             modified_url = path;
         }
 
-        const value = try http_ext.fetch_with_json(BeatmapsetSearch, client, allocator, modified_url, headers);
+        const value = try http_ext.fetch(BeatmapsetSearch, client, allocator, modified_url, headers, .GET);
         return value.value;
     }
 };
