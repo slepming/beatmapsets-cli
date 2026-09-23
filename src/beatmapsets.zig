@@ -290,8 +290,6 @@ pub const BeatmapsetSearch = struct {
             modified_url = path;
         }
 
-        std.log.debug("{s}", .{modified_url});
-
         const value = try http_ext.fetch_with_json(BeatmapsetSearch, client, allocator, modified_url, headers);
         return value.value;
     }

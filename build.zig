@@ -26,6 +26,11 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const zio = b.dependency("zio", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     const args_mod = b.dependency("args", .{ .target = target, .optimize = optimize });
 
     // This creates a module, which represents a collection of source files alongside
@@ -47,7 +52,9 @@ pub fn build(b: *std.Build) void {
         // which requires us to specify a target.
         .target = target,
     });
+
     mod.addImport("httpz", httpz.module("httpz"));
+    //mod.addImport("zio", zio.module("zio"));
 
     // Here we define an executable. An executable needs to have a root module
     // which needs to expose a `main` function. While we could add a main function
@@ -161,6 +168,7 @@ pub fn build(b: *std.Build) void {
     exe.root_module.addOptions("config", options);
     //exe.root_module.addImport("httpz", httpz.module("httpz"));
     exe.root_module.addImport("args", args_mod.module("args"));
+    exe.root_module.addImport("zio", zio.module("zio"));
 
     if (disable_tui) {
         const zigzag = b.dependency("zigzag", .{ .target = target, .optimize = optimize });

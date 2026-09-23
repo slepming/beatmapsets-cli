@@ -113,34 +113,36 @@ pub const Model = struct {
         defer http_client.deinit();
 
         if (self.current_token) |token| {
-            const beatmapsets = main.api.beatmapsets.BeatmapsetSearch.request(ctx.allocator, &http_client, &token, null) catch |err| {
+            const response = main.api.beatmapsets.BeatmapsetSearch.request(ctx.allocator, &http_client, &token, null) catch |err| {
                 self.error_message = "Search beatmapset request error";
                 return err;
             };
 
-            for (beatmapsets.beatmapsets) |beatmapset| {
-                const row = ctx.allocator.create([7][]const u8) catch |err| {
-                    self.error_message = "Out of memory error";
-                    return err;
-                };
+            if (response.beatmapsets) |beatmapsets| {
+                for (beatmapsets) |beatmapset| {
+                    const row = ctx.allocator.create([7][]const u8) catch |err| {
+                        self.error_message = "Out of memory error";
+                        return err;
+                    };
 
-                const beatmapset_id = std.fmt.allocPrint(ctx.allocator, "{d}", .{beatmapset.id}) catch "out of memory";
-                const beatmapset_bpm = std.fmt.allocPrint(ctx.allocator, "{any}", .{beatmapset.bpm}) catch "out of memory";
+                    const beatmapset_id = std.fmt.allocPrint(ctx.allocator, "{d}", .{beatmapset.id}) catch "out of memory";
+                    const beatmapset_bpm = std.fmt.allocPrint(ctx.allocator, "{any}", .{beatmapset.bpm}) catch "out of memory";
 
-                row.* = .{
-                    beatmapset_id,
-                    beatmapset.title,
-                    beatmapset.artist,
-                    beatmapset.creator,
-                    beatmapset.status,
-                    beatmapset_bpm,
-                    if (beatmapset.anime_cover) "Yes" else "No",
-                };
+                    row.* = .{
+                        beatmapset_id,
+                        beatmapset.title,
+                        beatmapset.artist,
+                        beatmapset.creator,
+                        beatmapset.status,
+                        beatmapset_bpm,
+                        if (beatmapset.anime_cover) "Yes" else "No",
+                    };
 
-                try table_rows.append(
-                    ctx.allocator,
-                    row,
-                );
+                    try table_rows.append(
+                        ctx.allocator,
+                        row,
+                    );
+                }
             }
 
             self.beatmapset_table.setRows(table_rows.items) catch |err| {

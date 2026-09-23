@@ -1,4 +1,5 @@
 const std = @import("std");
+const zio = @import("zio");
 pub const api = @import("beatmapsets_cli");
 const args = @import("args");
 const config = @import("config");
@@ -10,10 +11,14 @@ pub const VERSION: []const u8 = "0.0.2";
 pub const PORT: u32 = 3000;
 
 pub fn main(init: std.process.Init) !void {
-    const io = init.io;
     var arena: std.heap.ArenaAllocator = .init(std.heap.page_allocator);
     defer arena.deinit();
     const allocator = arena.allocator();
+
+    var zr = try zio.Runtime.init(allocator, .{});
+    defer zr.deinit();
+
+    const io = zr.io();
 
     // Create argument parser
     var parser = try args.ArgumentParser.init(allocator, .{

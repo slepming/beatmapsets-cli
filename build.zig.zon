@@ -48,6 +48,10 @@
             .url = "git+https://github.com/meszmate/zigzag?ref=main#0a09aa484719a5257cb87dd0f09b4f7e81adcd5b",
             .hash = "zigzag-0.1.6-YXwYS7UBEwAOOl0w7ju033G2mqu034VzFPp3eMoQJukY",
         },
+        .zio = .{
+            .url = "git+https://github.com/lalinsky/zio?ref=v0.18.0#417757935ef6d0f0a2396d4023a44ca82ac1901c",
+            .hash = "zio-0.18.0-xHbVVELgKQAU2hnwYL9MA0iXUydUZYlBfXxOUUM6v_Uv",
+        },
     },
     .paths = .{
         "build.zig",
