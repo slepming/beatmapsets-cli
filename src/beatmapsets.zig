@@ -105,7 +105,7 @@ pub const Beatmap = struct {
     /// Returns beatmap by beatmap(not beatmapset id) id
     ///
     /// See also [Beatmap](https://osu.ppy.sh/wiki/en/Beatmap)
-    pub fn get_beatmap(allocator: std.mem.Allocator, client: *std.http.Client, tkn: *const authorization.Token, id: u32) !Beatmap {
+    pub fn get_beatmap(allocator: std.mem.Allocator, client: *std.http.Client, tkn: *const authorization.Token, id: u32) !std.json.Parsed(Beatmap) {
         const path = "https://osu.ppy.sh/api/v2/beatmaps/";
         var modified_url: []const u8 = undefined;
         var buffer: [1024]u8 = undefined;
@@ -139,8 +139,8 @@ pub const Beatmap = struct {
 
         modified_url = try std.fmt.bufPrint(&buffer, "{s}{}", .{ path, id });
 
-        const value = try http_ext.fetch_with_json(Beatmap, client, allocator, modified_url, headers);
-        return value.value;
+        const value = try http_ext.fetch(Beatmap, client, allocator, modified_url, headers, .GET);
+        return value;
     }
 };
 
@@ -215,7 +215,7 @@ pub const BeatmapsetSearch = struct {
         client: *std.http.Client,
         tkn: *const authorization.Token,
         search: ?BeatmapsetSearchQueryOptions,
-    ) !BeatmapsetSearch {
+    ) !std.json.Parsed(BeatmapsetSearch) {
         const path = "https://osu.ppy.sh/api/v2/beatmapsets/search";
         var modified_url: []const u8 = undefined;
         var buffer: [1024]u8 = undefined;
@@ -291,7 +291,7 @@ pub const BeatmapsetSearch = struct {
         }
 
         const value = try http_ext.fetch(BeatmapsetSearch, client, allocator, modified_url, headers, .GET);
-        return value.value;
+        return value;
     }
 };
 
@@ -335,8 +335,9 @@ test "search_beatmapset_authorized_request_without_options" {
             &structed_token,
             null,
         );
+        defer response.deinit();
 
-        if (response.beatmapsets) |beatmapsets| try std.testing.expectEqual(50, beatmapsets.len);
+        if (response.value.beatmapsets) |beatmapsets| try std.testing.expectEqual(50, beatmapsets.len);
     } else {
         std.log.err("OSU_API_TOKEN variable is empty. For tests you need get token from osu api", .{});
         return error.TokenUnavailable;
@@ -377,8 +378,9 @@ test "search_beatmapset_authorized_request_with_options" {
             &structed_token,
             options,
         );
+        defer response.deinit();
 
-        if (response.beatmapsets) |beatmapsets| try std.testing.expect(beatmapsets.len > 0);
+        if (response.value.beatmapsets) |beatmapsets| try std.testing.expect(beatmapsets.len > 0);
     } else {
         std.log.err("OSU_API_TOKEN variable is empty. For tests you need get token from osu api", .{});
         return error.TokenUnavailable;
@@ -405,8 +407,9 @@ test "receive_beatmap_by_id" {
         };
 
         const beatmap = try Beatmap.get_beatmap(allocator, &http_client, &structed_token, 33502);
+        defer beatmap.deinit();
 
-        try std.testing.expectEqual(8023, beatmap.beatmapset_id);
+        try std.testing.expectEqual(8023, beatmap.value.beatmapset_id);
     } else {
         std.log.err("OSU_API_TOKEN variable is empty. For tests you need get token from osu api", .{});
         return error.TokenUnavailable;

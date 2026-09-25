@@ -231,7 +231,7 @@ pub const User = struct {
     unread_pm_count: ?u32 = null,
     session_verified: ?bool = null,
 
-    pub fn get_user(allocator: std.mem.Allocator, client: *std.http.Client, tkn: *const auth.Token, user: UserOptions) !User {
+    pub fn get_user(allocator: std.mem.Allocator, client: *std.http.Client, tkn: *const auth.Token, user: UserOptions) !std.json.Parsed(User) {
         const path = "https://osu.ppy.sh/api/v2/users/";
         var modified_url: []const u8 = undefined;
         var buffer: [1024]u8 = undefined;
@@ -281,7 +281,7 @@ pub const User = struct {
 
         const value = try http_ext.fetch(User, client, allocator, modified_url, headers, .GET);
 
-        return value.value;
+        return value;
     }
 };
 
@@ -304,7 +304,9 @@ test "get_user_by_username" {
             .refresh_token = null,
         };
 
-        const user = try User.get_user(allocator, &http_client, &structed_token, .{ .username = "slepming" });
+        const response = try User.get_user(allocator, &http_client, &structed_token, .{ .username = "slepming" });
+        defer response.deinit();
+        const user = response.value;
 
         try std.testing.expectEqual(29155149, user.id);
     } else {
@@ -332,7 +334,9 @@ test "get_user_by_id" {
             .refresh_token = null,
         };
 
-        const user = try User.get_user(allocator, &http_client, &structed_token, .{ .id = 29155149 });
+        const response = try User.get_user(allocator, &http_client, &structed_token, .{ .id = 29155149 });
+        defer response.deinit();
+        const user = response.value;
         std.debug.print("DEBUG: Username ptr: {*}, len: {d}\n", .{ user.username.ptr, user.username.len });
         std.debug.print(
             "ptr = 0x{x}, len = {}\n",

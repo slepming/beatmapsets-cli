@@ -106,7 +106,6 @@ pub fn fetch(
             .ignore_unknown_fields = true,
         },
     );
-    defer parsed.deinit();
 
     return parsed;
 }
