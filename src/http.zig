@@ -99,14 +99,17 @@ pub fn fetch(
         return HttpStatusError.UnhandledResponseStatus;
     }
 
-    const parsed = try std.json.parseFromSlice(
+    const parsed = std.json.parseFromSlice(
         T,
         fetchOptions.alloc,
         result_slice,
         .{
             .ignore_unknown_fields = true,
         },
-    );
+    ) catch |e| {
+        std.debug.print("{s}", .{result_slice});
+        return e;
+    };
 
     return parsed;
 }

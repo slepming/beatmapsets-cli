@@ -94,17 +94,21 @@ pub fn main(init: std.process.Init) !void {
 }
 
 fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: ?[]const u8, client_secret: []const u8, client_id: u64, authorization_type: bool) !void {
+    var writer = std.Io.Writer.Allocating.init(allocator);
+    defer writer.deinit();
+
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
     var token: api.token.Token = try authorization(io, allocator, client_secret, client_id, authorization_type);
     const beatmapset_s = try api.beatmapsets.BeatmapsetSearch.request(
         allocator,
         &http_client,
+        &writer,
         &token,
         .{ .query = q },
     );
 
-    const _beatmapsets = beatmapset_s.beatmapsets;
+    const _beatmapsets = beatmapset_s.value.beatmapsets;
 
     if (_beatmapsets) |beatmapsets| {
         for (beatmapsets) |beatmap| {
@@ -114,17 +118,21 @@ fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: ?[]const u8
 }
 
 fn get_user(io: std.Io, allocator: std.mem.Allocator, id: i64, client_secret: []const u8, client_id: u64) !void {
+    var writer = std.Io.Writer.Allocating.init(allocator);
+    defer writer.deinit();
+
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
     var token: api.token.Token = try authorization(io, allocator, client_secret, client_id, false);
     const user = try api.user.User.get_user(
         allocator,
         &http_client,
+        &writer,
         &token,
         .{ .id = @intCast(id) },
     );
 
-    std.debug.print("{s}", .{user.username});
+    std.debug.print("{s}", .{user.value.username});
 }
 
 pub fn authorization(io: std.Io, allocator: std.mem.Allocator, client_secret: []const u8, client_id: u64, authorization_type: bool) !api.token.Token {

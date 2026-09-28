@@ -70,6 +70,8 @@ pub const Covers = struct {
     @"slimcover@2x": []const u8,
 };
 
+pub const Hype = struct { current: u64, required: u64 };
+
 /// See wiki [beatmap](https://osu.ppy.sh/wiki/en/Beatmap)
 pub const Beatmap = struct {
     id: u64,
@@ -178,7 +180,7 @@ pub const Beatmapset = struct {
     favourite_count: u64 = 0,
     play_count: u64 = 0,
     rating: f64 = 0.0,
-    hype: ?u64 = null,
+    hype: ?Hype = null,
     last_updated: []const u8,
     submitted_date: ?[]const u8 = null,
     ranked_date: ?[]const u8 = null,
