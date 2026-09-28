@@ -3,6 +3,7 @@ const std = @import("std");
 const zio = @import("zio");
 const args = @import("args");
 const config = @import("config");
+const tables = @import("prettytable");
 const Io = std.Io;
 
 pub const DESCRIPTION: []const u8 = "Simplest osu! api v2 wrapper with cli";
@@ -95,9 +96,18 @@ pub fn main(init: std.process.Init) !void {
     }
 }
 
-fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: ?[]const u8, client_secret: []const u8, client_id: u64, authorization_type: bool) !void {
+fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8, client_secret: []const u8, client_id: u64, authorization_type: bool) !void {
+    std.log.info("QUERY: {s}", .{q});
+
     var writer = std.Io.Writer.Allocating.init(allocator);
     defer writer.deinit();
+
+    var table = tables.Table.init(allocator);
+    defer table.deinit();
+
+    try table.setTitle(&.{ "ID", "ARTIST", "NAME", "CREATOR", "STATUS" });
+
+    var buffer: [512]u8 = undefined;
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
@@ -108,15 +118,23 @@ fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: ?[]const u8
         &writer,
         &token,
         .{ .query = q },
-    );
+    ); // TODO: When I use quotes here shows error: 'UnhandledResponseStatus'
 
     const _beatmapsets = beatmapset_s.value.beatmapsets;
 
     if (_beatmapsets) |beatmapsets| {
         for (beatmapsets) |beatmap| {
-            std.log.info("{s} -- {s}: {d}", .{ beatmap.artist, beatmap.title, beatmap.id });
+            try table.addRow(&.{
+                try api.string_ext.from(u64, &buffer, beatmap.id),
+                beatmap.artist,
+                beatmap.title,
+                beatmap.creator,
+                beatmap.status,
+            });
         }
     }
+
+    try table.printStdout(io);
 }
 
 fn get_user(io: std.Io, allocator: std.mem.Allocator, id: i64, client_secret: []const u8, client_id: u64) !void {

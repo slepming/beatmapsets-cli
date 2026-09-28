@@ -26,6 +26,11 @@ pub fn build(b: *std.Build) void {
         .optimize = optimize,
     });
 
+    const prettytable = b.dependency("prettytable", .{
+        .target = target,
+        .optimize = optimize,
+    });
+
     const zio = b.dependency("zio", .{
         .target = target,
         .optimize = optimize,
@@ -169,6 +174,7 @@ pub fn build(b: *std.Build) void {
     //exe.root_module.addImport("httpz", httpz.module("httpz"));
     exe.root_module.addImport("args", args_mod.module("args"));
     exe.root_module.addImport("zio", zio.module("zio"));
+    exe.root_module.addImport("prettytable", prettytable.module("prettytable"));
 
     if (disable_tui) {
         const zigzag = b.dependency("zigzag", .{ .target = target, .optimize = optimize });

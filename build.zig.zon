@@ -52,6 +52,10 @@
             .url = "git+https://github.com/lalinsky/zio?ref=v0.18.0#417757935ef6d0f0a2396d4023a44ca82ac1901c",
             .hash = "zio-0.18.0-xHbVVELgKQAU2hnwYL9MA0iXUydUZYlBfXxOUUM6v_Uv",
         },
+        .prettytable = .{
+            .url = "git+https://github.com/dying-will-bullet/prettytable-zig#ba8c7657c1391b2f900a0ac023f80a039f5070c5",
+            .hash = "prettytable-0.5.0-eV_JBGm9AQAbMazK5AdnZwEm8mWxek0DOH8UsB1SourV",
+        },
     },
     .paths = .{
         "build.zig",
