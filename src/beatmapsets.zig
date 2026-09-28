@@ -105,7 +105,7 @@ pub const Beatmap = struct {
     /// Returns beatmap by beatmap(not beatmapset id) id
     ///
     /// See also [Beatmap](https://osu.ppy.sh/wiki/en/Beatmap)
-    pub fn get_beatmap(allocator: std.mem.Allocator, client: *std.http.Client, tkn: *const authorization.Token, id: u32) !std.json.Parsed(Beatmap) {
+    pub fn get_beatmap(allocator: std.mem.Allocator, client: *std.http.Client, writer: *std.Io.Writer.Allocating, tkn: *const authorization.Token, id: u32) !std.json.Parsed(Beatmap) {
         const path = "https://osu.ppy.sh/api/v2/beatmaps/";
         var modified_url: []const u8 = undefined;
         var buffer: [1024]u8 = undefined;
@@ -139,7 +139,12 @@ pub const Beatmap = struct {
 
         modified_url = try std.fmt.bufPrint(&buffer, "{s}{}", .{ path, id });
 
-        const value = try http_ext.fetch(Beatmap, client, allocator, modified_url, headers, .GET);
+        const value = try http_ext.fetch(Beatmap, modified_url, headers, .GET, .{
+            .writer = writer,
+            .alloc = allocator,
+            .client = client,
+        });
+
         return value;
     }
 };
@@ -213,6 +218,7 @@ pub const BeatmapsetSearch = struct {
     pub fn request(
         allocator: std.mem.Allocator,
         client: *std.http.Client,
+        writer: *std.Io.Writer.Allocating,
         tkn: *const authorization.Token,
         search: ?BeatmapsetSearchQueryOptions,
     ) !std.json.Parsed(BeatmapsetSearch) {
@@ -290,13 +296,21 @@ pub const BeatmapsetSearch = struct {
             modified_url = path;
         }
 
-        const value = try http_ext.fetch(BeatmapsetSearch, client, allocator, modified_url, headers, .GET);
+        const value = try http_ext.fetch(BeatmapsetSearch, modified_url, headers, .GET, .{
+            .alloc = allocator,
+            .client = client,
+            .writer = writer,
+        });
+
         return value;
     }
 };
 
 test "beatmapset_unauthorized_requests" {
     const allocator = std.testing.allocator;
+    var writer = std.Io.Writer.Allocating.init(allocator);
+    defer writer.deinit();
+
     var threaded = std.Io.Threaded.init(allocator, .{});
     var client = std.http.Client{
         .allocator = allocator,
@@ -306,7 +320,16 @@ test "beatmapset_unauthorized_requests" {
 
     const tkn = authorization.Token{ .access_token = "", .expires_in = 3, .token_type = "Bearer", .refresh_token = null };
 
-    try std.testing.expectError(SearchBeatmapsetsError.Unauthorization, BeatmapsetSearch.request(allocator, &client, &tkn, null));
+    try std.testing.expectError(
+        SearchBeatmapsetsError.Unauthorization,
+        BeatmapsetSearch.request(
+            allocator,
+            &client,
+            &writer,
+            &tkn,
+            null,
+        ),
+    );
 }
 
 test "search_beatmapset_authorized_request_without_options" {
@@ -315,6 +338,9 @@ test "search_beatmapset_authorized_request_without_options" {
     const io = std.testing.io;
     var env = try std.testing.environ.createMap(allocator);
     defer env.deinit();
+
+    var writer = std.Io.Writer.Allocating.init(allocator);
+    defer writer.deinit();
 
     const tkn = env.get("OSU_API_TOKEN");
 
@@ -332,6 +358,7 @@ test "search_beatmapset_authorized_request_without_options" {
         const response = try BeatmapsetSearch.request(
             allocator,
             &http_client,
+            &writer,
             &structed_token,
             null,
         );
@@ -350,6 +377,9 @@ test "search_beatmapset_authorized_request_with_options" {
     const io = std.testing.io;
     var env = try std.testing.environ.createMap(allocator);
     defer env.deinit();
+
+    var writer = std.Io.Writer.Allocating.init(allocator);
+    defer writer.deinit();
 
     const tkn = env.get("OSU_API_TOKEN");
 
@@ -375,6 +405,7 @@ test "search_beatmapset_authorized_request_with_options" {
         const response = try BeatmapsetSearch.request(
             allocator,
             &http_client,
+            &writer,
             &structed_token,
             options,
         );
@@ -393,6 +424,9 @@ test "receive_beatmap_by_id" {
     var env = try std.testing.environ.createMap(allocator);
     defer env.deinit();
 
+    var writer = std.Io.Writer.Allocating.init(allocator);
+    defer writer.deinit();
+
     const tkn = env.get("OSU_API_TOKEN");
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
@@ -406,7 +440,13 @@ test "receive_beatmap_by_id" {
             .refresh_token = null,
         };
 
-        const beatmap = try Beatmap.get_beatmap(allocator, &http_client, &structed_token, 33502);
+        const beatmap = try Beatmap.get_beatmap(
+            allocator,
+            &http_client,
+            &writer,
+            &structed_token,
+            33502,
+        );
         defer beatmap.deinit();
 
         try std.testing.expectEqual(8023, beatmap.value.beatmapset_id);

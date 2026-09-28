@@ -231,7 +231,7 @@ pub const User = struct {
     unread_pm_count: ?u32 = null,
     session_verified: ?bool = null,
 
-    pub fn get_user(allocator: std.mem.Allocator, client: *std.http.Client, tkn: *const auth.Token, user: UserOptions) !std.json.Parsed(User) {
+    pub fn get_user(allocator: std.mem.Allocator, client: *std.http.Client, writer: *std.Io.Writer.Allocating, tkn: *const auth.Token, user: UserOptions) !std.json.Parsed(User) {
         const path = "https://osu.ppy.sh/api/v2/users/";
         var modified_url: []const u8 = undefined;
         var buffer: [1024]u8 = undefined;
@@ -279,7 +279,11 @@ pub const User = struct {
             });
         } else return error.usernameAndIdEqualsNull;
 
-        const value = try http_ext.fetch(User, client, allocator, modified_url, headers, .GET);
+        const value = try http_ext.fetch(User, modified_url, headers, .GET, .{
+            .writer = writer,
+            .alloc = allocator,
+            .client = client,
+        });
 
         return value;
     }
@@ -290,6 +294,9 @@ test "get_user_by_username" {
     const io = std.testing.io;
     var env = try std.testing.environ.createMap(allocator);
     defer env.deinit();
+
+    var writer = std.Io.Writer.Allocating.init(allocator);
+    defer writer.deinit();
 
     const tkn = env.get("OSU_API_TOKEN");
 
@@ -304,7 +311,7 @@ test "get_user_by_username" {
             .refresh_token = null,
         };
 
-        const response = try User.get_user(allocator, &http_client, &structed_token, .{ .username = "slepming" });
+        const response = try User.get_user(allocator, &http_client, &writer, &structed_token, .{ .username = "slepming" });
         defer response.deinit();
         const user = response.value;
 
@@ -321,6 +328,9 @@ test "get_user_by_id" {
     var env = try std.testing.environ.createMap(allocator);
     defer env.deinit();
 
+    var writer = std.Io.Writer.Allocating.init(allocator);
+    defer writer.deinit();
+
     const tkn = env.get("OSU_API_TOKEN");
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
@@ -334,16 +344,11 @@ test "get_user_by_id" {
             .refresh_token = null,
         };
 
-        const response = try User.get_user(allocator, &http_client, &structed_token, .{ .id = 29155149 });
+        const response = try User.get_user(allocator, &http_client, &writer, &structed_token, .{ .id = 29155149 });
         defer response.deinit();
         const user = response.value;
-        std.debug.print("DEBUG: Username ptr: {*}, len: {d}\n", .{ user.username.ptr, user.username.len });
-        std.debug.print(
-            "ptr = 0x{x}, len = {}\n",
-            .{ @intFromPtr(user.username.ptr), user.username.len },
-        );
 
-        try std.testing.expectEqualStrings("slepming", user.username); // Segmentation fault on user.username when retreiving the index value
+        try std.testing.expectEqualStrings("slepming", user.username);
     } else {
         std.log.err("OSU_API_TOKEN variable is empty. For tests you need get token from osu api", .{});
         return error.TokenUnavailable;
