@@ -38,9 +38,11 @@ pub fn main(init: std.process.Init) !void {
         .help = "Enable client authorization",
     });
 
-    try parser.addFlag("tui", .{
-        .help = "Enable tui client",
-    });
+    if (config.disable_tui) {
+        try parser.addFlag("tui", .{
+            .help = "Enable tui client",
+        });
+    }
 
     try parser.addOption("search-beatmapsets", .{
         .short = 's',
@@ -112,7 +114,7 @@ fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: ?[]const u8
 
     if (_beatmapsets) |beatmapsets| {
         for (beatmapsets) |beatmap| {
-            std.log.debug("{s}", .{beatmap.title});
+            std.log.info("{s} -- {s}: {d}", .{ beatmap.artist, beatmap.title, beatmap.id });
         }
     }
 }
@@ -132,7 +134,7 @@ fn get_user(io: std.Io, allocator: std.mem.Allocator, id: i64, client_secret: []
         .{ .id = @intCast(id) },
     );
 
-    std.debug.print("{s}", .{user.value.username});
+    std.log.info("{s}", .{user.value.username});
 }
 
 pub fn authorization(io: std.Io, allocator: std.mem.Allocator, client_secret: []const u8, client_id: u64, authorization_type: bool) !api.token.Token {
