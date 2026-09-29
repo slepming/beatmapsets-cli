@@ -82,7 +82,7 @@ pub const Model = struct {
                     }
                 }
                 switch (k.key) {
-                    .char => {
+                    .char => |e| {
                         if (self.selected_panel == 1) {
                             switch (self.focus) {
                                 .SearchBeatmapsetTextArea => {
@@ -92,6 +92,19 @@ pub const Model = struct {
                                     }
                                 },
                                 .SearchBeatmapsetTable => self.beatmapset_table.handleKey(k),
+                            }
+                        }
+                        switch (e) {
+                            'l' => {
+                                self.selected_panel = (self.selected_panel +% 1) % 3;
+                                if (self.selected_panel == 1) self.search_beatmapsets(ctx) catch return .quit;
+                            },
+                            'h' => {
+                                self.selected_panel = (self.selected_panel -% 1) % 3;
+                                if (self.selected_panel == 1) self.search_beatmapsets(ctx) catch return .quit;
+                            },
+                            else => {
+                                return .none;
                             }
                         }
                     },
