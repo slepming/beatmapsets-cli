@@ -107,7 +107,7 @@ pub const Beatmap = struct {
     /// Returns beatmap by beatmap(not beatmapset id) id
     ///
     /// See also [Beatmap](https://osu.ppy.sh/wiki/en/Beatmap)
-    pub fn get_beatmap(allocator: std.mem.Allocator, client: *std.http.Client, writer: *std.Io.Writer.Allocating, tkn: *const authorization.Token, id: u32) !std.json.Parsed(Beatmap) {
+    pub fn getBeatmap(allocator: std.mem.Allocator, client: *std.http.Client, writer: *std.Io.Writer.Allocating, tkn: *const authorization.Token, id: u32) !std.json.Parsed(Beatmap) {
         const path = "https://osu.ppy.sh/api/v2/beatmaps/";
         var modified_url: []const u8 = undefined;
         var buffer: [1024]u8 = undefined;
@@ -293,7 +293,7 @@ pub const BeatmapsetSearch = struct {
                 .{ .v = query, .k = "q" },
             );
 
-            modified_url = try http_ext.append_query(&buffer, path, queries.items);
+            modified_url = try http_ext.appendQuery(&buffer, path, queries.items);
         } else {
             modified_url = path;
         }
@@ -442,7 +442,7 @@ test "receive_beatmap_by_id" {
             .refresh_token = null,
         };
 
-        const beatmap = try Beatmap.get_beatmap(
+        const beatmap = try Beatmap.getBeatmap(
             allocator,
             &http_client,
             &writer,

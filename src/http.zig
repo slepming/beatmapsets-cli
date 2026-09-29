@@ -15,7 +15,7 @@ pub const FetchMem = struct { alloc: std.mem.Allocator, client: *std.http.Client
 /// Append query to base url with url size value.
 ///
 /// Result live while buffer live
-pub fn append_query_raw(buf: []u8, url: []const u8, kv: []const Query, val: usize) std.fmt.BufPrintError![]const u8 {
+pub fn appendQueryRaw(buf: []u8, url: []const u8, kv: []const Query, val: usize) std.fmt.BufPrintError![]const u8 {
     var cursor: usize = 0;
 
     if (buf.len < url.len) return std.fmt.BufPrintError.NoSpaceLeft;
@@ -45,11 +45,11 @@ pub fn append_query_raw(buf: []u8, url: []const u8, kv: []const Query, val: usiz
     return buf[0..cursor];
 }
 
-pub fn append_query_http(buf: []u8, url: []const u8, kv: []const Query) std.fmt.BufPrintError![]const u8 {
-    return append_query_raw(buf, url, kv, url.len);
+pub fn appendQueryHttp(buf: []u8, url: []const u8, kv: []const Query) std.fmt.BufPrintError![]const u8 {
+    return appendQueryRaw(buf, url, kv, url.len);
 }
 
-pub fn append_query(buf: []u8, url_raw: []const u8, kv: []const Query) std.fmt.BufPrintError![]const u8 {
+pub fn appendQuery(buf: []u8, url_raw: []const u8, kv: []const Query) std.fmt.BufPrintError![]const u8 {
     if (buf.len < url_raw.len) return std.fmt.BufPrintError.NoSpaceLeft;
     var url: [URL_MAX_LENGTH]u8 = undefined;
 
@@ -59,13 +59,15 @@ pub fn append_query(buf: []u8, url_raw: []const u8, kv: []const Query) std.fmt.B
         @memcpy(url[0..url_size], url_raw[0..url_size]);
     } else @memcpy(url[0..url_raw.len], url_raw);
 
-    return append_query_raw(
+    return appendQueryRaw(
         buf,
         &url,
         kv,
         url_size,
     );
 }
+
+//pub fn queryEncode(buf: []u8, query: []const u8) std.fmt.BufPrintError![]const u8 {}
 
 pub fn fetch(
     comptime T: type,
@@ -114,7 +116,7 @@ pub fn fetch(
     return parsed;
 }
 
-test "http_append_query" {
+test "http_appendQuery" {
     var buffer: [1024]u8 = undefined;
 
     const paths: [2][]const u8 = .{
@@ -136,7 +138,7 @@ test "http_append_query" {
     };
 
     for (paths) |path| {
-        const extended_url = try append_query(&buffer, path, queries);
+        const extended_url = try appendQuery(&buffer, path, queries);
         try testing.expectEqualStrings(result, extended_url);
     }
 }
