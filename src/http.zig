@@ -67,7 +67,24 @@ pub fn appendQuery(buf: []u8, url_raw: []const u8, kv: []const Query) std.fmt.Bu
     );
 }
 
-//pub fn queryEncode(buf: []u8, query: []const u8) std.fmt.BufPrintError![]const u8 {}
+pub fn queryEncode(buf: []u8, query: []const u8) std.fmt.BufPrintError![]const u8 {
+    if (buf.len < query.len) return std.fmt.BufPrintError.NoSpaceLeft;
+    var cursor: u32 = 0;
+
+    for (query) |q| {
+        if (q == 0x20) {
+            buf[cursor] = '+';
+            cursor += 1;
+        } else {
+            buf[cursor] = query[cursor];
+            cursor += 1;
+        }
+
+        std.debug.print("{s}\n", .{buf[0..cursor]});
+    }
+
+    return buf[0..cursor];
+}
 
 pub fn fetch(
     comptime T: type,

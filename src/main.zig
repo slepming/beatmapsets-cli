@@ -108,6 +108,7 @@ fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8,
     try table.setTitle(&.{ "ID", "ARTIST", "NAME", "CREATOR", "STATUS" });
 
     var buffer: [512]u8 = undefined;
+    var query_buffer: [1024]u8 = undefined;
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
@@ -117,7 +118,7 @@ fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8,
         &http_client,
         &writer,
         &token,
-        .{ .query = q },
+        .{ .query = try api.http_ext.queryEncode(&query_buffer, q) },
     ); // TODO: When I use quotes here shows error: 'UnhandledResponseStatus'
 
     const _beatmapsets = beatmapset_s.value.beatmapsets;
