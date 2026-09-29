@@ -16,6 +16,7 @@ pub const Model = struct {
     error_limit: u8 = 3,
     focus: Focus = .SearchBeatmapsetTextArea,
     areas: std.StringHashMap(zz.components.TextArea),
+    writer_alloc: std.Io.Writer.Allocating,
 
     pub const Msg = union(enum) {
         key: zz.KeyEvent,
@@ -47,6 +48,7 @@ pub const Model = struct {
             .selected_panel = 0,
             .beatmapset_table = t,
             .areas = .init(ctx.persistent_allocator),
+            .writer_alloc = std.Io.Writer.Allocating.init(ctx.persistent_allocator),
         };
 
         try self.areas.put("beatmapset_query_text_area", query_text_area);
@@ -113,12 +115,12 @@ pub const Model = struct {
         defer http_client.deinit();
 
         if (self.current_token) |token| {
-            const response = main.api.beatmapsets.BeatmapsetSearch.request(ctx.allocator, &http_client, &token, null) catch |err| {
+            const response = main.api.beatmapsets.BeatmapsetSearch.request(ctx.allocator, &http_client, &self.writer_alloc, &token, null) catch |err| {
                 self.error_message = "Search beatmapset request error";
                 return err;
             };
 
-            if (response.beatmapsets) |beatmapsets| {
+            if (response.value.beatmapsets) |beatmapsets| {
                 for (beatmapsets) |beatmapset| {
                     const row = ctx.allocator.create([7][]const u8) catch |err| {
                         self.error_message = "Out of memory error";
