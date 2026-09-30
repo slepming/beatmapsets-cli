@@ -120,7 +120,6 @@ fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8,
     );
 
     const _beatmapsets = beatmapset_s.value.beatmapsets;
-    var cursor: u64 = 0;
 
     if (_beatmapsets) |beatmapsets| {
         for (beatmapsets) |beatmap| {
@@ -132,7 +131,6 @@ fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8,
                 beatmap.creator,
                 beatmap.status,
             });
-            cursor += id.len;
         }
     }
 
