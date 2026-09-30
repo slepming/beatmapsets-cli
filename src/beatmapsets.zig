@@ -457,3 +457,51 @@ test "receive_beatmap_by_id" {
         return error.TokenUnavailable;
     }
 }
+
+test "some_requests_at_the_time" {
+    const allocator = std.testing.allocator;
+
+    const io = std.testing.io;
+    var env = try std.testing.environ.createMap(allocator);
+    defer env.deinit();
+
+    var writer = std.Io.Writer.Allocating.init(allocator);
+    defer writer.deinit();
+
+    const tkn = env.get("OSU_API_TOKEN");
+
+    var http_client = std.http.Client{ .allocator = allocator, .io = io };
+    defer http_client.deinit();
+
+    if (tkn) |token| {
+        const structed_token = authorization.Token{
+            .access_token = token,
+            .token_type = "Bearer",
+            .expires_in = 0,
+            .refresh_token = null,
+        };
+
+        const options: BeatmapsetSearchQueryOptions = .{
+            .categ = .Loved,
+            .criteria = .Relevance,
+            .genre = .Metal,
+            .lang = .Russian,
+            .mode = .Osu,
+        };
+
+        for (0..3) |_| {
+            const response = try BeatmapsetSearch.request(
+                allocator,
+                &http_client,
+                &writer,
+                &structed_token,
+                options,
+            );
+            defer response.deinit();
+            if (response.value.beatmapsets) |beatmapsets| try std.testing.expect(beatmapsets.len > 0);
+        }
+    } else {
+        std.log.err("OSU_API_TOKEN variable is empty. For tests you need get token from osu api", .{});
+        return error.TokenUnavailable;
+    }
+}
