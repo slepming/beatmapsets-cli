@@ -21,7 +21,6 @@ pub fn main(init: std.process.Init) !void {
 
     const io = zr.io();
 
-    // Create argument parser
     var parser = try args.ArgumentParser.init(allocator, .{
         .name = NAME,
         .version = VERSION,
@@ -29,7 +28,6 @@ pub fn main(init: std.process.Init) !void {
     });
     defer parser.deinit();
 
-    // Add arguments
     try parser.addFlag("verbose", .{
         .short = 'v',
         .help = "Enable verbose output",
@@ -119,7 +117,7 @@ fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8,
         &writer,
         &token,
         .{ .query = try api.http_ext.queryEncode(&query_buffer, q) },
-    ); // TODO: When I use quotes here shows error: 'UnhandledResponseStatus'
+    ); 
 
     const _beatmapsets = beatmapset_s.value.beatmapsets;
 

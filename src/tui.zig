@@ -8,8 +8,13 @@ const Focus = enum {
     SearchBeatmapsetTextArea,
 };
 
+const Menu = enum {
+    Overview,
+    SearchBeatmapsets,
+};
+
 pub const Model = struct {
-    selected_panel: u8,
+    menu_position: Menu,
     beatmapset_table: zz.components.DataTable,
     error_message: ?[]const u8 = null,
     current_token: ?authorization.Token = null,
@@ -45,7 +50,7 @@ pub const Model = struct {
         query_text_area.placeholder = "Query";
 
         self.* = .{
-            .selected_panel = 0,
+            .menu_position = .Overview,
             .beatmapset_table = t,
             .areas = .init(ctx.persistent_allocator),
             .writer_alloc = std.Io.Writer.Allocating.init(ctx.persistent_allocator),
@@ -54,7 +59,7 @@ pub const Model = struct {
         try self.areas.put("beatmapset_query_text_area", query_text_area);
 
         if (self.current_token == null) {
-            try self.refresh_token(ctx.persistent_allocator, ctx.io);
+            try self.refreshToken(ctx.persistent_allocator, ctx.io);
         }
 
         return .none;
@@ -67,10 +72,10 @@ pub const Model = struct {
                     switch (k.key) {
                         .char => |c| switch (c) {
                             'q' => return .quit,
-                            'o' => self.selected_panel = 0,
+                            'o' => self.menu_position = @enumFromInt(0),
                             's' => {
-                                self.selected_panel = 1;
-                                self.search_beatmapsets(ctx) catch return .quit;
+                                self.menu_position = @enumFromInt(1);
+                                self.searchBeatmapsets(ctx) catch return .quit;
                             },
                             else => {
                                 return .none;
@@ -83,7 +88,7 @@ pub const Model = struct {
                 }
                 switch (k.key) {
                     .char => |e| {
-                        if (self.selected_panel == 1) {
+                        if (self.menu_position == .SearchBeatmapsets) {
                             switch (self.focus) {
                                 .SearchBeatmapsetTextArea => {
                                     const _area = self.areas.getPtr("beatmapset_query_text_area");
@@ -96,21 +101,28 @@ pub const Model = struct {
                         }
                         switch (e) {
                             'l' => {
-                                self.selected_panel = (self.selected_panel +% 1) % 3;
-                                if (self.selected_panel == 1) self.search_beatmapsets(ctx) catch return .quit;
+                                self.menu_position = @enumFromInt((@intFromEnum(self.menu_position) +% 1));
+                                if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx) catch {
+                                    return .none;
+                                };
                             },
                             'h' => {
-                                self.selected_panel = (self.selected_panel -% 1) % 3;
-                                if (self.selected_panel == 1) self.search_beatmapsets(ctx) catch return .quit;
+                                self.menu_position = @enumFromInt((@intFromEnum(self.menu_position) -% 1));
+                                if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx) catch {
+                                    return .none;
+                                };
                             },
                             else => {
                                 return .none;
-                            }
+                            },
                         }
                     },
                     .tab => {
-                        self.selected_panel = (self.selected_panel + 1) % 3;
-                        if (self.selected_panel == 1) self.search_beatmapsets(ctx) catch return .quit;
+                        self.menu_position = @enumFromInt((@intFromEnum(self.menu_position) +% 1));
+                        if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx) catch |err| {
+                            std.log.err("{}", .{err});
+                            return .quit;
+                        };
                     },
                     .escape => return .quit,
                     else => {},
@@ -121,7 +133,7 @@ pub const Model = struct {
         return .none;
     }
 
-    fn search_beatmapsets(self: *Model, ctx: *zz.Context) !void {
+    fn searchBeatmapsets(self: *Model, ctx: *zz.Context) !void {
         table_rows.clearAndFree(ctx.allocator);
 
         var http_client = std.http.Client{ .allocator = ctx.allocator, .io = ctx.io };
@@ -129,7 +141,7 @@ pub const Model = struct {
 
         if (self.current_token) |token| {
             const response = main.api.beatmapsets.BeatmapsetSearch.request(ctx.allocator, &http_client, &self.writer_alloc, &token, null) catch |err| {
-                self.error_message = "Search beatmapset request error";
+                self.error_message = try std.fmt.allocPrint(ctx.allocator, "{s}: {}", .{ "Search beatmapset request error", err });
                 return err;
             };
 
@@ -165,7 +177,7 @@ pub const Model = struct {
                 return err;
             };
         } else {
-            self.refresh_token(ctx.persistent_allocator, ctx.io) catch |err| {
+            self.refreshToken(ctx.persistent_allocator, ctx.io) catch |err| {
                 self.error_message = "Token invalid";
                 return err;
             };
@@ -173,6 +185,10 @@ pub const Model = struct {
     }
 
     pub fn view(self: *const Model, ctx: *const zz.Context) ![]const u8 {
+        if (self.error_message) |err_msg| {
+            return err_msg;
+        }
+
         const alloc = ctx.allocator;
         const w: u16 = @intCast(@min(ctx.width, std.math.maxInt(u16)));
         const h: u16 = @intCast(@min(ctx.height, std.math.maxInt(u16)));
@@ -220,16 +236,15 @@ pub const Model = struct {
             "  [1] Overview\n" ++
             "  [2] Beatmapsets\n" ++
             "  [3] WIP";
-        const sidebar = renderPanel(alloc, sidebar_items, cols[0].width, cols[0].height, zz.Color.magenta, self.selected_panel == 0);
+        const sidebar = renderPanel(alloc, sidebar_items, cols[0].width, cols[0].height, zz.Color.magenta, self.menu_position == .Overview);
 
         // Main content area
-        const main_text = switch (self.selected_panel) {
-            0 => main.DESCRIPTION,
-            1 => beatmapsets_content,
-            else => "",
+        const main_text = switch (self.menu_position) {
+            .Overview => main.DESCRIPTION,
+            .SearchBeatmapsets => beatmapsets_content,
         };
 
-        const main_panel = renderPanel(alloc, main_text, cols[1].width, cols[1].height, zz.Color.green, self.selected_panel == 1);
+        const main_panel = renderPanel(alloc, main_text, cols[1].width, cols[1].height, zz.Color.green, self.menu_position == .SearchBeatmapsets);
 
         // Footer
         var help_style = zz.Style{};
@@ -264,19 +279,19 @@ pub const Model = struct {
         return s.render(alloc, content) catch content;
     }
 
-    fn refresh_token(
+    fn refreshToken(
         self: *Model,
         allocator: std.mem.Allocator,
         io: std.Io,
     ) !void {
-        self.refresh_token_env(allocator, io) catch |err| {
+        self.refreshTokenEnv(allocator, io) catch |err| {
             if (err == error.ClientInvalid) {
-                self.selected_panel = std.math.maxInt(u8);
+                self.menu_position = @enumFromInt(0);
             }
         };
     }
 
-    fn refresh_token_env(
+    fn refreshTokenEnv(
         self: *Model,
         allocator: std.mem.Allocator,
         io: std.Io,
@@ -295,7 +310,7 @@ pub const Model = struct {
         };
     }
 
-    fn refresh_token_tui(self: *Model, alloc: std.mem.Allocator, w: u16, h: u16) ![]const u8 {
+    fn refreshTokenTui(self: *Model, alloc: std.mem.Allocator, w: u16, h: u16) ![]const u8 {
         const content = zz.flex.layout(
             alloc,
             w,
