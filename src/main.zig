@@ -105,7 +105,7 @@ fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8,
 
     try table.setTitle(&.{ "ID", "ARTIST", "NAME", "CREATOR", "STATUS" });
 
-    var buffer: [512]u8 = undefined;
+    //var buffer: [512]u8 = undefined;
     var query_buffer: [1024]u8 = undefined;
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
@@ -117,19 +117,22 @@ fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8,
         &writer,
         &token,
         .{ .query = try api.http_ext.queryEncode(&query_buffer, q) },
-    ); 
+    );
 
     const _beatmapsets = beatmapset_s.value.beatmapsets;
+    var cursor: u64 = 0;
 
     if (_beatmapsets) |beatmapsets| {
         for (beatmapsets) |beatmap| {
+            const id = try api.string_ext.from_alloc(u64, allocator, beatmap.id);
             try table.addRow(&.{
-                try api.string_ext.from(u64, &buffer, beatmap.id),
+                id,
                 beatmap.artist,
                 beatmap.title,
                 beatmap.creator,
                 beatmap.status,
             });
+            cursor += id.len;
         }
     }
 

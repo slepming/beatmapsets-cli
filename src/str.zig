@@ -5,6 +5,10 @@ pub fn from(comptime T: type, buffer: []u8, integer: T) ![]const u8 {
     return try std.fmt.bufPrint(buffer, "{}", .{integer});
 }
 
+pub fn from_alloc(comptime T: type, allocator: std.mem.Allocator, integer: T) ![]const u8 {
+    return try std.fmt.allocPrint(allocator, "{}", .{integer});
+}
+
 test "convert" {
     const ascii = &[_]u8{ '2', '3', '0' };
     const ascii_less = &[_]u8{ '1', '0', '0' };
