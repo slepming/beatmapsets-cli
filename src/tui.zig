@@ -19,7 +19,7 @@ pub const Model = struct {
     error_message: ?[]const u8 = null,
     current_token: ?authorization.Token = null,
     error_limit: u8 = 3,
-    focus: Focus = .SearchBeatmapsetTextArea,
+    focus: Focus = .SearchBeatmapsetTable,
     areas: std.StringHashMap(zz.components.TextArea),
     writer_alloc: std.Io.Writer.Allocating,
 
