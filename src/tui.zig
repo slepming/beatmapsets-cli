@@ -3,11 +3,6 @@ const std = @import("std");
 const authorization = @import("beatmapsets_cli").token;
 const main = @import("main.zig");
 
-const Focus = enum {
-    SearchBeatmapsetTable,
-    SearchBeatmapsetTextArea,
-};
-
 const Menu = enum {
     Overview,
     SearchBeatmapsets,
@@ -19,7 +14,6 @@ pub const Model = struct {
     error_message: ?[]const u8 = null,
     current_token: ?authorization.Token = null,
     error_limit: u8 = 3,
-    focus: Focus = .SearchBeatmapsetTable,
     areas: std.StringHashMap(zz.components.TextArea),
     writer_alloc: std.Io.Writer.Allocating,
 
@@ -47,7 +41,7 @@ pub const Model = struct {
         t.setFrozenColumns(2);
 
         var query_text_area = zz.components.TextArea.init(ctx.persistent_allocator);
-        query_text_area.placeholder = "Query";
+        query_text_area.placeholder = "Query(for enter text press 'i')";
 
         self.* = .{
             .menu_position = .Overview,
@@ -66,8 +60,17 @@ pub const Model = struct {
     }
 
     pub fn update(self: *Model, msg: Msg, ctx: *zz.Context) zz.Cmd(Msg) {
+        const _area = self.areas.getPtr("beatmapset_query_text_area");
         switch (msg) {
             .key => |k| {
+                if (self.menu_position == .SearchBeatmapsets) {
+                    if (_area) |area| {
+                        area.handleKey(k);
+                        if (!area.focused) {
+                            self.beatmapset_table.handleKey(k);
+                        }
+                    }
+                }
                 if (k.modifiers.ctrl) {
                     switch (k.key) {
                         .char => |c| switch (c) {
@@ -77,29 +80,6 @@ pub const Model = struct {
                                 self.menu_position = @enumFromInt(1);
                                 self.searchBeatmapsets(ctx) catch return .quit;
                             },
-                            else => {
-                                return .none;
-                            },
-                        },
-                        else => {
-                            return .none;
-                        },
-                    }
-                }
-                switch (k.key) {
-                    .char => |e| {
-                        if (self.menu_position == .SearchBeatmapsets) {
-                            switch (self.focus) {
-                                .SearchBeatmapsetTextArea => {
-                                    const _area = self.areas.getPtr("beatmapset_query_text_area");
-                                    if (_area) |area| {
-                                        area.handleKey(k);
-                                    }
-                                },
-                                .SearchBeatmapsetTable => self.beatmapset_table.handleKey(k),
-                            }
-                        }
-                        switch (e) {
                             'l' => {
                                 self.menu_position = @enumFromInt((@intFromEnum(self.menu_position) +% 1));
                                 if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx) catch {
@@ -115,8 +95,28 @@ pub const Model = struct {
                             else => {
                                 return .none;
                             },
+                        },
+                        else => {
+                            return .none;
+                        },
+                    }
+                }
+                switch (k.key) {
+                    .char => |e| {
+                        switch (e) {
+                            'i' => {
+                                if (self.menu_position == .SearchBeatmapsets) {
+                                    if (_area) |area| {
+                                        area.focus();
+                                    }
+                                }
+                            },
+                            else => {
+                                return .none;
+                            },
                         }
                     },
+                    .backspace => {},
                     .tab => {
                         self.menu_position = @enumFromInt((@intFromEnum(self.menu_position) +% 1));
                         if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx) catch |err| {
@@ -124,7 +124,13 @@ pub const Model = struct {
                             return .quit;
                         };
                     },
-                    .escape => return .quit,
+                    .escape => {
+                        if (self.menu_position == .SearchBeatmapsets) {
+                            if (_area) |area| {
+                                area.blur();
+                            }
+                        }
+                    },
                     else => {},
                 }
             },
@@ -252,7 +258,7 @@ pub const Model = struct {
         help_style = help_style.inline_style(true);
         const footer_text = try help_style.render(
             alloc,
-            std.fmt.allocPrint(alloc, "Tab: cycle panels  C-s: search beatmapsets  C-q: quit        {any} fps", .{ctx.fps()}) catch return "OUT OF MEMORY",
+            std.fmt.allocPrint(alloc, "Tab/C-{{h,l}}: cycle panels  C-s: search beatmapsets  C-q: quit        {any} fps", .{ctx.fps()}) catch return "OUT OF MEMORY",
         );
         const footer = renderPanel(alloc, footer_text, rows[2].width, rows[2].height, zz.Color.gray(8), false);
 
