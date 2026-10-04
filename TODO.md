@@ -3,6 +3,6 @@
 
 # API
 - [ ] Beatmapsets: ~~SearchBeatmapsets~~, GetBeatmapsets
-- [ ] Beatmaps: ~~GetBeatmap~~, GetBeatmapsets
+- [ ] Beatmaps: ~~GetBeatmap~~, GetBeatmaps
+- [ ] Users: ~~GetUser~~
 - [ ] Authentication: ~~ClientCredential~~, ~~CodeGrant~~, RefreshToken
-- [ ] Integrate zio instead standart http client

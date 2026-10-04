@@ -45,7 +45,7 @@ pub fn build(b: *std.Build) void {
     // to our consumers. We must give it a name because a Zig package can expose
     // multiple modules and consumers will need to be able to specify which
     // module they want to access.
-    const mod = b.addModule("beatmapsets_cli", .{
+    const beatmapsets_library = b.addModule("beatmapsets_cli", .{
         // The root source file is the "entry point" of this module. Users of
         // this module will only be able to access public declarations contained
         // in this file, which means that if you have declarations that you
@@ -58,7 +58,7 @@ pub fn build(b: *std.Build) void {
         .target = target,
     });
 
-    mod.addImport("httpz", httpz.module("httpz"));
+    beatmapsets_library.addImport("httpz", httpz.module("httpz"));
     //mod.addImport("zio", zio.module("zio"));
 
     // Here we define an executable. An executable needs to have a root module
@@ -98,7 +98,7 @@ pub fn build(b: *std.Build) void {
                 // repeated because you are allowed to rename your imports, which
                 // can be extremely useful in case of collisions (which can happen
                 // importing modules from different packages).
-                .{ .name = "beatmapsets_cli", .module = mod },
+                .{ .name = "beatmapsets_cli", .module = beatmapsets_library },
             },
         }),
     });
@@ -138,14 +138,14 @@ pub fn build(b: *std.Build) void {
     // Creates an executable that will run `test` blocks from the provided module.
     // Here `mod` needs to define a target, which is why earlier we made sure to
     // set the releative field.
-    const mod_tests = b.addTest(.{
-        .root_module = mod,
+    const beatmapsets_library_tests = b.addTest(.{
+        .root_module = beatmapsets_library,
     });
 
-    exe.root_module.addImport("osu_api", mod);
+    exe.root_module.addImport("osu_api", beatmapsets_library);
 
     // A run step that will run the test executable.
-    const run_mod_tests = b.addRunArtifact(mod_tests);
+    const run_library_tests = b.addRunArtifact(beatmapsets_library_tests);
 
     // Creates an executable that will run `test` blocks from the executable's
     // root module. Note that test executables only test one module at a time,
@@ -161,7 +161,7 @@ pub fn build(b: *std.Build) void {
     // times and since the two run steps do not depend on one another, this will
     // make the two of them run in parallel.
     const test_step = b.step("test", "Run tests");
-    test_step.dependOn(&run_mod_tests.step);
+    test_step.dependOn(&run_library_tests.step);
     test_step.dependOn(&run_exe_tests.step);
 
     // OPTIONS

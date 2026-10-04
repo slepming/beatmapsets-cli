@@ -20,6 +20,7 @@ pub const Model = struct {
     pub const Msg = union(enum) {
         key: zz.KeyEvent,
     };
+    var last_query: []const u8 = undefined;
 
     const table_headers = [_]zz.components.DataColumn{
         .{ .header = "id", .width = 15, .@"align" = .right },
@@ -78,17 +79,17 @@ pub const Model = struct {
                             'o' => self.menu_position = @enumFromInt(0),
                             's' => {
                                 self.menu_position = @enumFromInt(1);
-                                self.searchBeatmapsets(ctx) catch return .quit;
+                                self.searchBeatmapsets(ctx, null) catch return .quit;
                             },
                             'l' => {
                                 self.menu_position = @enumFromInt((@intFromEnum(self.menu_position) +% 1));
-                                if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx) catch {
+                                if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx, null) catch {
                                     return .none;
                                 };
                             },
                             'h' => {
                                 self.menu_position = @enumFromInt((@intFromEnum(self.menu_position) -% 1));
-                                if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx) catch {
+                                if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx, null) catch {
                                     return .none;
                                 };
                             },
@@ -111,6 +112,24 @@ pub const Model = struct {
                                     }
                                 }
                             },
+                            'y' => {
+                                if (self.menu_position == .SearchBeatmapsets) {
+                                    if (_area) |area| {
+                                        if (!area.focused) {
+                                            var buf: [1024]u8 = undefined;
+                                            var writer_buf: [1024]u8 = undefined;
+                                            const table_cursor_position_column = self.beatmapset_table.cursor_col;
+                                            const table_cursor_position_row = self.beatmapset_table.cursor_row;
+                                            const table_cursor_value = self.beatmapset_table.rows.items[table_cursor_position_row][table_cursor_position_column];
+                                            const encoded = std.base64.standard.Encoder.encode(&buf, table_cursor_value);
+
+                                            var writer = std.Io.File.stdout().writer(ctx.io, &writer_buf);
+                                            writer.interface.print("\x1b]52;c;{s}\x07", .{encoded}) catch return .quit;
+                                            writer.flush() catch return .quit;
+                                        }
+                                    }
+                                }
+                            },
                             else => {
                                 return .none;
                             },
@@ -119,7 +138,7 @@ pub const Model = struct {
                     .backspace => {},
                     .tab => {
                         self.menu_position = @enumFromInt((@intFromEnum(self.menu_position) +% 1));
-                        if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx) catch |err| {
+                        if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx, null) catch |err| {
                             std.log.err("{}", .{err});
                             return .quit;
                         };
@@ -127,7 +146,18 @@ pub const Model = struct {
                     .escape => {
                         if (self.menu_position == .SearchBeatmapsets) {
                             if (_area) |area| {
-                                area.blur();
+                                if (area.focused) {
+                                    area.blur();
+                                    const _area_value = area.getValue(ctx.allocator) catch null;
+                                    if (_area_value) |area_value| {
+                                        if (!std.mem.eql(u8, area_value, last_query) and area_value.len > 1) {
+                                            last_query = area_value;
+                                            self.searchBeatmapsets(ctx, area_value) catch {
+                                                return .none;
+                                            };
+                                        }
+                                    }
+                                }
                             }
                         }
                     },
@@ -139,14 +169,15 @@ pub const Model = struct {
         return .none;
     }
 
-    fn searchBeatmapsets(self: *Model, ctx: *zz.Context) !void {
+    fn searchBeatmapsets(self: *Model, ctx: *zz.Context, _query: ?[]const u8) !void {
+        self.writer_alloc.clearRetainingCapacity();
         table_rows.clearAndFree(ctx.allocator);
 
         var http_client = std.http.Client{ .allocator = ctx.allocator, .io = ctx.io };
         defer http_client.deinit();
 
         if (self.current_token) |token| {
-            const response = main.api.beatmapsets.BeatmapsetSearch.request(ctx.allocator, &http_client, &self.writer_alloc, &token, null) catch |err| {
+            const response = main.api.beatmapsets.BeatmapsetSearch.request(ctx.allocator, &http_client, &self.writer_alloc, &token, if (_query) |query| .{ .query = query } else null) catch |err| {
                 self.error_message = try std.fmt.allocPrint(ctx.allocator, "{s}: {}", .{ "Search beatmapset request error", err });
                 return err;
             };

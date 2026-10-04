@@ -461,12 +461,12 @@ test "receive_beatmap_by_id" {
 test "some_requests_at_the_time" {
     const allocator = std.testing.allocator;
 
+    var writer = std.Io.Writer.Allocating.init(allocator);
+    defer writer.deinit();
+
     const io = std.testing.io;
     var env = try std.testing.environ.createMap(allocator);
     defer env.deinit();
-
-    var writer = std.Io.Writer.Allocating.init(allocator);
-    defer writer.deinit();
 
     const tkn = env.get("OSU_API_TOKEN");
 
@@ -490,6 +490,7 @@ test "some_requests_at_the_time" {
         };
 
         for (0..3) |_| {
+            writer.clearRetainingCapacity();
             const response = try BeatmapsetSearch.request(
                 allocator,
                 &http_client,
