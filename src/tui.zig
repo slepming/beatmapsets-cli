@@ -9,7 +9,6 @@ const LogLevel = enum { Error, Info };
 pub const Model = struct {
     menu_position: Menu,
     beatmapset_table: zz.components.DataTable,
-    error_message: ?[]const u8 = null,
     current_token: ?authorization.Token = null,
     error_limit: u8 = 3,
     areas: std.StringHashMap(zz.components.TextArea),
@@ -81,18 +80,20 @@ pub const Model = struct {
                             'o' => self.menu_position = @enumFromInt(0),
                             's' => {
                                 self.menu_position = @enumFromInt(1);
-                                self.searchBeatmapsets(ctx, null) catch return .quit;
+                                self.searchBeatmapsets(ctx, null) catch |err| {
+                                    Model.log("{any}", .{err}, .Error);
+                                };
                             },
                             'l' => {
                                 self.menu_position = @enumFromInt((@intFromEnum(self.menu_position) +% 1));
-                                if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx, null) catch {
-                                    return .none;
+                                if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx, null) catch |err| {
+                                    Model.log("{any}", .{err}, .Error);
                                 };
                             },
                             'h' => {
                                 self.menu_position = @enumFromInt((@intFromEnum(self.menu_position) -% 1));
-                                if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx, null) catch {
-                                    return .none;
+                                if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx, null) catch |err| {
+                                    Model.log("{any}", .{err}, .Error);
                                 };
                             },
                             else => {
@@ -126,7 +127,7 @@ pub const Model = struct {
                                             const encoded = std.base64.standard.Encoder.encode(&buf, table_cursor_value);
 
                                             var writer = std.Io.File.stdout().writer(ctx.io, &writer_buf);
-                                            writer.interface.print("\x1b]52;c;{s}\x07", .{encoded}) catch return .quit;
+                                            writer.interface.print("\x1b]52;c;{s}\x07", .{encoded}) catch |err| Model.log("{any}", .{err}, .Error);
                                             writer.flush() catch return .quit;
                                         }
                                     }
@@ -141,7 +142,7 @@ pub const Model = struct {
                     .tab => {
                         self.menu_position = @enumFromInt((@intFromEnum(self.menu_position) +% 1));
                         if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx, null) catch |err| {
-                            std.log.err("{}", .{err});
+                            Model.log("{any}", .{err}, .Error);
                             return .quit;
                         };
                     },
@@ -154,9 +155,7 @@ pub const Model = struct {
                                     if (_area_value) |area_value| {
                                         if (!std.mem.eql(u8, area_value, last_query) and area_value.len > 1) {
                                             last_query = area_value;
-                                            self.searchBeatmapsets(ctx, area_value) catch {
-                                                return .none;
-                                            };
+                                            self.searchBeatmapsets(ctx, area_value) catch |err| Model.log("{any}", .{err}, .Error);
                                         }
                                     }
                                 }
@@ -180,7 +179,6 @@ pub const Model = struct {
 
         if (self.current_token) |token| {
             const response = main.api.beatmapsets.BeatmapsetSearch.request(ctx.allocator, &http_client, &self.writer_alloc, &token, if (_query) |query| .{ .query = query } else null) catch |err| {
-                self.error_message = try std.fmt.allocPrint(ctx.allocator, "{s}: {}", .{ "Search beatmapset request error", err });
                 Model.log("{s}: {}", .{ "Search beatmapset request error", err }, .Error);
                 return err;
             };
@@ -188,13 +186,12 @@ pub const Model = struct {
             if (response.value.beatmapsets) |beatmapsets| {
                 for (beatmapsets) |beatmapset| {
                     const row = ctx.allocator.create([7][]const u8) catch |err| {
-                        self.error_message = "Out of memory error";
                         Model.log("Out of memory error", .{}, .Error);
                         return err;
                     };
 
-                    const beatmapset_id = std.fmt.allocPrint(ctx.allocator, "{d}", .{beatmapset.id}) catch "out of memory";
-                    const beatmapset_bpm = std.fmt.allocPrint(ctx.allocator, "{any}", .{beatmapset.bpm}) catch "out of memory";
+                    const beatmapset_id = try std.fmt.allocPrint(ctx.allocator, "{d}", .{beatmapset.id});
+                    const beatmapset_bpm = try std.fmt.allocPrint(ctx.allocator, "{any}", .{beatmapset.bpm});
 
                     row.* = .{
                         beatmapset_id,
@@ -214,7 +211,6 @@ pub const Model = struct {
             }
 
             self.beatmapset_table.setRows(table_rows.items) catch |err| {
-                self.error_message = "Setting rows for table error";
                 Model.log("Setting rows for table error", .{}, .Error);
                 return err;
             };
@@ -228,10 +224,6 @@ pub const Model = struct {
     }
 
     pub fn view(self: *const Model, ctx: *const zz.Context) ![]const u8 {
-        if (self.error_message) |err_msg| {
-            return err_msg;
-        }
-
         const alloc = ctx.allocator;
         const w: u16 = @intCast(@min(ctx.width, std.math.maxInt(u16)));
         const h: u16 = @intCast(@min(ctx.height, std.math.maxInt(u16)));
