@@ -3,10 +3,8 @@ const std = @import("std");
 const authorization = @import("beatmapsets_cli").token;
 const main = @import("main.zig");
 
-const Menu = enum {
-    Overview,
-    SearchBeatmapsets,
-};
+const Menu = enum { Overview, SearchBeatmapsets };
+const LogLevel = enum { Error, Info };
 
 pub const Model = struct {
     menu_position: Menu,
@@ -54,7 +52,9 @@ pub const Model = struct {
         try self.areas.put("beatmapset_query_text_area", query_text_area);
 
         if (self.current_token == null) {
-            try self.refreshToken(ctx.persistent_allocator, ctx.io);
+            self.refreshToken(ctx.persistent_allocator, ctx.io) catch |err| {
+                Model.log("Refreshing token error {any}", .{err}, .Error);
+            };
         }
 
         return .none;
@@ -179,6 +179,7 @@ pub const Model = struct {
         if (self.current_token) |token| {
             const response = main.api.beatmapsets.BeatmapsetSearch.request(ctx.allocator, &http_client, &self.writer_alloc, &token, if (_query) |query| .{ .query = query } else null) catch |err| {
                 self.error_message = try std.fmt.allocPrint(ctx.allocator, "{s}: {}", .{ "Search beatmapset request error", err });
+                Model.log("{s}: {}", .{ "Search beatmapset request error", err }, .Error);
                 return err;
             };
 
@@ -186,6 +187,7 @@ pub const Model = struct {
                 for (beatmapsets) |beatmapset| {
                     const row = ctx.allocator.create([7][]const u8) catch |err| {
                         self.error_message = "Out of memory error";
+                        Model.log("Out of memory error", .{}, .Error);
                         return err;
                     };
 
@@ -211,11 +213,13 @@ pub const Model = struct {
 
             self.beatmapset_table.setRows(table_rows.items) catch |err| {
                 self.error_message = "Setting rows for table error";
+                Model.log("Setting rows for table error", .{}, .Error);
                 return err;
             };
         } else {
             self.refreshToken(ctx.persistent_allocator, ctx.io) catch |err| {
                 self.error_message = "Token invalid";
+                Model.log("Token invalid", .{}, .Error);
                 return err;
             };
         }
@@ -325,6 +329,8 @@ pub const Model = struct {
             if (err == error.ClientInvalid) {
                 self.menu_position = @enumFromInt(0);
             }
+            Model.log("{any}", .{err}, .Error);
+            return err;
         };
     }
 
@@ -369,5 +375,17 @@ pub const Model = struct {
 
         self.areas.put("client_id", client_id_area);
         self.areas.put("client_secret", client_secret_area);
+    }
+
+    /// Log an message to err output
+    fn log(comptime format: []const u8, args: anytype, level: LogLevel) void {
+        switch (level) {
+            .Info => {
+                std.log.info(format, args);
+            },
+            .Error => {
+                std.log.err(format, args);
+            },
+        }
     }
 };

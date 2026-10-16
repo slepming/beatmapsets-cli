@@ -1,6 +1,3 @@
-# HTTP ext
-- [ ] URL parsing
-
 # API
 - [ ] Beatmapsets: ~~SearchBeatmapsets~~, GetBeatmapsets
 - [ ] Beatmaps: ~~GetBeatmap~~, GetBeatmaps
