@@ -52,8 +52,10 @@ pub const Model = struct {
         try self.areas.put("beatmapset_query_text_area", query_text_area);
 
         if (self.current_token == null) {
-            self.refreshToken(ctx.persistent_allocator, ctx.io) catch |err| {
+            self.current_token = Model.refreshToken(ctx.persistent_allocator, ctx.io) catch |err| {
                 Model.log("Refreshing token error {any}", .{err}, .Error);
+                self.menu_position = @enumFromInt(0);
+                return .none;
             };
         }
 
@@ -217,9 +219,9 @@ pub const Model = struct {
                 return err;
             };
         } else {
-            self.refreshToken(ctx.persistent_allocator, ctx.io) catch |err| {
-                self.error_message = "Token invalid";
+            self.current_token = Model.refreshToken(ctx.persistent_allocator, ctx.io) catch |err| {
                 Model.log("Token invalid", .{}, .Error);
+                self.menu_position = @enumFromInt(0);
                 return err;
             };
         }
@@ -320,25 +322,19 @@ pub const Model = struct {
         return s.render(alloc, content) catch content;
     }
 
+    /// Refresh or get token
     fn refreshToken(
-        self: *Model,
         allocator: std.mem.Allocator,
         io: std.Io,
-    ) !void {
-        self.refreshTokenEnv(allocator, io) catch |err| {
-            if (err == error.ClientInvalid) {
-                self.menu_position = @enumFromInt(0);
-            }
-            Model.log("{any}", .{err}, .Error);
-            return err;
-        };
+    ) !authorization.Token {
+        return try Model.refreshTokenEnv(allocator, io);
     }
 
+    /// Gets client id and client secret from environment variables and returns token
     fn refreshTokenEnv(
-        self: *Model,
         allocator: std.mem.Allocator,
         io: std.Io,
-    ) !void {
+    ) !authorization.Token {
         var http_client = std.http.Client{ .allocator = allocator, .io = io };
         defer http_client.deinit();
 
@@ -348,13 +344,11 @@ pub const Model = struct {
         const client_id: []const u8 = std.mem.span(client_id_raw);
         const client_secret: []const u8 = std.mem.span(client_secret_raw);
 
-        self.current_token = main.authorization(io, allocator, client_secret, std.fmt.parseInt(u64, client_id, 10) catch 0, false) catch {
-            return error.TokenInvalid;
-        };
+        return try main.authorization(io, allocator, client_secret, try std.fmt.parseInt(u64, client_id, 10), false);
     }
 
     fn refreshTokenTui(self: *Model, alloc: std.mem.Allocator, w: u16, h: u16) ![]const u8 {
-        const content = zz.flex.layout(
+        const content = try zz.flex.layout(
             alloc,
             w,
             h,
@@ -364,7 +358,7 @@ pub const Model = struct {
                 .{ .constraint = .{.fill} },
             },
             .{ .direction = .row, .gap = 1 },
-        ) catch return "layout error";
+        );
 
         var client_id_area = zz.components.TextArea.init(alloc);
         client_id_area.setSize(content[0].width, content[0].height);
