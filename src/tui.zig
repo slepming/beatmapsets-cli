@@ -19,15 +19,10 @@ pub const Model = struct {
     };
     var last_query: []const u8 = undefined;
 
-    const table_headers = [_]zz.components.DataColumn{
-        .{ .header = "id", .width = 15, .@"align" = .right },
-        .{ .header = "title", .width = 30 },
-        .{ .header = "artist", .width = 20 },
-        .{ .header = "creator", .width = 20 },
-        .{ .header = "status", .width = 15 },
-        .{ .header = "bpm", .width = 8, .@"align" = .right },
-        .{ .header = "anime cover?", .width = 12, .@"align" = .right },
-    };
+    const table_headers = [_]zz.components.DataColumn{ .{ .header = "id", .width = 15, .@"align" = .right }, .{ .header = "title", .width = 30 }, .{ .header = "artist", .width = 20 }, .{ .header = "creator", .width = 20 }, .{ .header = "status", .width = 15 }, .{ .header = "bpm", .width = 8, .@"align" = .right }, .{ .header = "anime cover?", .width = 12, .@"align" = .right }, .{
+        .header = "link",
+        .width = 24,
+    } };
 
     var table_rows: std.ArrayList([]const []const u8) = .empty;
 
@@ -185,13 +180,14 @@ pub const Model = struct {
 
             if (response.value.beatmapsets) |beatmapsets| {
                 for (beatmapsets) |beatmapset| {
-                    const row = ctx.allocator.create([7][]const u8) catch |err| {
+                    const row = ctx.allocator.create([8][]const u8) catch |err| {
                         Model.log("Out of memory error", .{}, .Error);
                         return err;
                     };
 
                     const beatmapset_id = try std.fmt.allocPrint(ctx.allocator, "{d}", .{beatmapset.id});
                     const beatmapset_bpm = try std.fmt.allocPrint(ctx.allocator, "{any}", .{beatmapset.bpm});
+                    const beatmapset_link = try std.fmt.allocPrint(ctx.allocator, "https://osu.ppy.sh/beatmapsets/{any}", .{beatmapset.id});
 
                     row.* = .{
                         beatmapset_id,
@@ -201,6 +197,7 @@ pub const Model = struct {
                         beatmapset.status,
                         beatmapset_bpm,
                         if (beatmapset.anime_cover) "Yes" else "No",
+                        beatmapset_link,
                     };
 
                     try table_rows.append(

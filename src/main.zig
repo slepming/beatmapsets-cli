@@ -10,6 +10,7 @@ pub const DESCRIPTION: []const u8 = "Simplest osu! api v2 wrapper with cli";
 pub const NAME: []const u8 = "beatmapsets-cli";
 pub const VERSION: []const u8 = "0.0.3";
 pub const PORT: u32 = 3000;
+pub const FPS: u32 = 15;
 
 pub fn main(init: std.process.Init) !void {
     var arena: std.heap.ArenaAllocator = .init(std.heap.page_allocator);
@@ -84,7 +85,7 @@ pub fn main(init: std.process.Init) !void {
         if (config.disable_tui) {
             const zz = @import("zigzag");
             const tui = @import("tui.zig");
-            var program = zz.Program(tui.Model).initWithOptions(allocator, io, init.environ_map, .{ .fps = 29, .title = NAME });
+            var program = zz.Program(tui.Model).initWithOptions(allocator, io, init.environ_map, .{ .fps = FPS, .title = NAME });
             defer program.deinit();
 
             try program.run();
