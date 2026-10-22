@@ -34,15 +34,15 @@ pub fn main(init: std.process.Init) !void {
         .help = "Enable verbose output",
     });
 
-    try parser.addFlag("client", .{
-        .help = "Enable client authorization",
-    });
-
     if (config.disable_tui) {
         try parser.addFlag("tui", .{
             .help = "Enable tui client",
         });
     }
+
+    try parser.addFlag("code-grant", .{
+        .help = "Enable Authorization code grant",
+    });
 
     try parser.addOption("search-beatmapsets", .{
         .short = 's',
@@ -57,29 +57,38 @@ pub fn main(init: std.process.Init) !void {
     var result = try parser.parseProcess(init);
     defer result.deinit();
 
-    //const verbose = result.getBool("verbose") orelse false;
+    var code_grant: bool = false;
+
+    if (result.getBool("code-grant")) |grant| {
+        code_grant = grant;
+    }
+
+    var token: api.token.Token = undefined;
+
+    const client_id_raw = init.environ_map.get("OSU_API_CLIENT_ID") orelse {
+        std.log.err("Environment variable 'OSU_API_CLIENT_ID' is null", .{});
+        return error.AuthorizationError;
+    };
+
+    const client_id = try std.fmt.parseInt(u64, client_id_raw, 10);
+
+    const client_secret = init.environ_map.get("OSU_API_CLIENT_SECRET") orelse {
+        std.log.err("Environment variable 'OSU_API_CLIENT_SECRET' is null", .{});
+        return error.AuthorizationError;
+    };
+
+    token = try authorization(io, allocator, client_secret, client_id, code_grant);
+
     const tui_enabled = result.getBool("tui") orelse false;
+
     if (!tui_enabled) {
         const search_beatmapsets = result.getString("search-beatmapsets");
         const user_by_id = result.getInt("user-by-id");
-        const user_authorization = result.getBool("client") orelse false;
-
-        const client_id_raw = init.environ_map.get("OSU_API_CLIENT_ID") orelse {
-            std.log.err("Environment variable 'OSU_API_CLIENT_ID' is null", .{});
-            return error.AuthorizationError;
-        };
-
-        const client_id = try std.fmt.parseInt(u64, client_id_raw, 10);
-
-        const client_secret = init.environ_map.get("OSU_API_CLIENT_SECRET") orelse {
-            std.log.err("Environment variable 'OSU_API_CLIENT_SECRET' is null", .{});
-            return error.AuthorizationError;
-        };
 
         if (search_beatmapsets) |q| {
-            try search_beatmapsets_f(io, allocator, q, client_secret, client_id, user_authorization);
+            try search_beatmapsets_f(io, allocator, q, &token);
         } else if (user_by_id) |user| {
-            try get_user(io, allocator, user, client_secret, client_id);
+            try get_user(io, allocator, user, &token);
         }
     } else {
         if (config.disable_tui) {
@@ -95,7 +104,7 @@ pub fn main(init: std.process.Init) !void {
     }
 }
 
-fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8, client_secret: []const u8, client_id: u64, authorization_type: bool) !void {
+fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8, token: *api.token.Token) !void {
     std.log.info("QUERY: {s}", .{q});
 
     var writer = std.Io.Writer.Allocating.init(allocator);
@@ -111,12 +120,12 @@ fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8,
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
-    var token: api.token.Token = try authorization(io, allocator, client_secret, client_id, authorization_type);
+
     const beatmapset_s = try api.beatmapsets.BeatmapsetSearch.request(
         allocator,
         &http_client,
         &writer,
-        &token,
+        token,
         .{ .query = try api.http_ext.queryEncode(&query_buffer, q) },
     );
 
@@ -138,18 +147,17 @@ fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8,
     try table.printStdout(io);
 }
 
-fn get_user(io: std.Io, allocator: std.mem.Allocator, id: i64, client_secret: []const u8, client_id: u64) !void {
+fn get_user(io: std.Io, allocator: std.mem.Allocator, id: i64, token: *api.token.Token) !void {
     var writer = std.Io.Writer.Allocating.init(allocator);
     defer writer.deinit();
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
-    var token: api.token.Token = try authorization(io, allocator, client_secret, client_id, false);
     const user = try api.user.User.get_user(
         allocator,
         &http_client,
         &writer,
-        &token,
+        token,
         .{ .id = @intCast(id) },
     );
 

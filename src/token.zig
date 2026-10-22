@@ -1,4 +1,5 @@
 const httpz = @import("httpz");
+const http_ext = @import("http.zig");
 const std = @import("std");
 
 var server: ?*httpz.Server(*AuthHandler) = null;
@@ -18,17 +19,20 @@ const AuthHandler = struct {
 pub const Token = struct { token_type: []const u8, expires_in: u32, access_token: []const u8, refresh_token: ?[]const u8 = null };
 
 pub fn auth_client(io: std.Io, allocator: std.mem.Allocator, client_secret: []const u8, client_id: u64, port: u16, scope: []const u8) !Token {
-    std.log.debug(
+    std.log.info(
         "open in browser: {s}oauth/authorize?client_id={d}&redirect_uri=http://{s}:{d}&response_type=code&scope={s}&state=randomval",
         .{ URI, client_id, localhost, port, scope },
     );
 
     var auth = AuthHandler{ .allocator = allocator, .client_id = client_id, .port = port, .client_secret = client_secret, .io = io };
 
+    std.log.debug("server starting on {s}:{any}", .{ localhost, port });
     var server_i = try httpz.Server(*AuthHandler).init(io, allocator, .{
         .address = .localhost(port),
     }, &auth);
+
     defer {
+        std.log.debug("server shotdown", .{});
         // clean shutdown, finishes serving any live requests
         server_i.deinit();
     }
@@ -49,6 +53,7 @@ pub fn auth_client(io: std.Io, allocator: std.mem.Allocator, client_secret: []co
 }
 
 fn listen(h: *AuthHandler, req: *httpz.Request, res: *httpz.Response) !void {
+    std.log.debug("server receive message", .{});
     const query = try req.query();
     const code = query.get("code") orelse {
         res.status = 400;
@@ -67,8 +72,8 @@ fn listen(h: *AuthHandler, req: *httpz.Request, res: *httpz.Response) !void {
         \\</style>
         \\<head><meta charset="utf-8"><title>OK</title></head>
         \\<body style="font-family: sans-serif; text-align: center; margin-top: 50px;">
-        \\  <h2 style="color: white">Авторизация успешна!</h2>
-        \\  <p style="color: white">Теперь эту вкладку можно закрыть.</p>
+        \\  <h2 style="color: white">Authorization success!</h2>
+        \\  <p style="color: white">You can close this page!.</p>
         \\</body>
         \\</html>
     ;
@@ -86,6 +91,7 @@ fn listen(h: *AuthHandler, req: *httpz.Request, res: *httpz.Response) !void {
         h.io,
         payload,
     );
+
     server.?.stop();
 }
 
@@ -97,20 +103,23 @@ pub fn client_credentials_token(
 ) !Token {
     var payload_buffer: [1024]u8 = undefined;
 
-    const payload = try std.fmt.bufPrint(
-        &payload_buffer,
-        "client_id={d}&client_secret={s}&grant_type=client_credentials&scope=public",
-        .{ client_id, client_secret },
-    );
-
-    return get_token(allocator, io, payload);
-}
-
-fn get_token(allocator: std.mem.Allocator, io: std.Io, payload: []const u8) !Token {
     var exchange_code_uri_buffer: [256]u8 = undefined;
 
     const exchange_code_uri = try std.fmt.bufPrint(&exchange_code_uri_buffer, "{s}oauth/token", .{URI});
 
+    const _client_id = try std.fmt.allocPrint(allocator, "{d}", .{client_id});
+
+    const payload_query = try http_ext.appendQueryHttp(&payload_buffer, exchange_code_uri, &[_]http_ext.Query{
+        .{ .v = _client_id, .k = "client_id" },
+        .{ .v = client_secret, .k = "client_secret" },
+        .{ .v = "client_credentials", .k = "grant_type" },
+        .{ .v = "public", .k = "scope" },
+    });
+
+    return get_token(allocator, io, payload_query);
+}
+
+fn get_token(allocator: std.mem.Allocator, io: std.Io, exchange_code_uri: []const u8) !Token {
     var allocated_result = std.Io.Writer.Allocating.init(allocator);
     defer allocated_result.deinit();
 
@@ -133,7 +142,6 @@ fn get_token(allocator: std.mem.Allocator, io: std.Io, payload: []const u8) !Tok
                 .uri = try std.Uri.parse(exchange_code_uri),
             },
             .method = .POST,
-            .payload = payload,
             .extra_headers = headers,
             .response_writer = &allocated_result.writer,
         },
@@ -142,7 +150,7 @@ fn get_token(allocator: std.mem.Allocator, io: std.Io, payload: []const u8) !Tok
     const result_slice = allocated_result.written();
 
     if (response.status != .ok) {
-        std.log.err("HTTP status: {d}", .{@intFromEnum(response.status)});
+        std.log.err("HTTP status: {d}", .{@backingInt(response.status)});
         std.log.err("{s}", .{result_slice});
     }
 
