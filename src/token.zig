@@ -80,16 +80,28 @@ fn listen(h: *AuthHandler, req: *httpz.Request, res: *httpz.Response) !void {
 
     var payload_buffer: [1024]u8 = undefined;
 
-    const payload = try std.fmt.bufPrint(
-        &payload_buffer,
-        "client_id={d}&client_secret={s}&code={s}&grant_type=authorization_code&redirect_uri=http://{s}:{d}",
-        .{ h.client_id, h.client_secret, code, localhost, h.port },
-    );
+    var client_id_buf: [32]u8 = undefined;
+    const client_id_str = try std.fmt.bufPrint(&client_id_buf, "{d}", .{h.client_id});
+
+    var redirect_uri_buf: [128]u8 = undefined;
+    const redirect_uri_str = try std.fmt.bufPrint(&redirect_uri_buf, "http://{s}:{d}", .{ localhost, h.port });
+
+    const payload_query = try http_ext.appendQuery(&payload_buffer, &[_]http_ext.Query{
+        .{ .k = "client_id", .v = client_id_str },
+        .{ .k = "client_secret", .v = h.client_secret },
+        .{ .k = "code", .v = code },
+        .{ .k = "grant_type", .v = "authorization_code" },
+        .{ .k = "redirect_uri", .v = redirect_uri_str },
+    }, 0);
+
+    var exchange_code_uri_buffer: [256]u8 = undefined;
+    const exchange_code_url = try std.fmt.bufPrint(&exchange_code_uri_buffer, "{s}oauth/token", .{URI});
 
     h.code = try get_token(
         h.allocator,
         h.io,
-        payload,
+        exchange_code_url,
+        payload_query,
     );
 
     server.?.stop();
@@ -105,21 +117,21 @@ pub fn client_credentials_token(
 
     var exchange_code_uri_buffer: [256]u8 = undefined;
 
-    const exchange_code_uri = try std.fmt.bufPrint(&exchange_code_uri_buffer, "{s}oauth/token", .{URI});
+    const exchange_code_url = try std.fmt.bufPrint(&exchange_code_uri_buffer, "{s}oauth/token", .{URI});
 
     const _client_id = try std.fmt.allocPrint(allocator, "{d}", .{client_id});
 
-    const payload_query = try http_ext.appendQueryToUrl(&payload_buffer, exchange_code_uri, &[_]http_ext.Query{
+    const payload_query = try http_ext.appendQuery(&payload_buffer, &[_]http_ext.Query{
         .{ .v = _client_id, .k = "client_id" },
         .{ .v = client_secret, .k = "client_secret" },
         .{ .v = "client_credentials", .k = "grant_type" },
         .{ .v = "public", .k = "scope" },
-    });
+    }, 0);
 
-    return get_token(allocator, io, payload_query);
+    return get_token(allocator, io, exchange_code_url, payload_query);
 }
 
-fn get_token(allocator: std.mem.Allocator, io: std.Io, exchange_code_uri: []const u8) !Token {
+fn get_token(allocator: std.mem.Allocator, io: std.Io, exchange_code_url: []const u8, payload: []const u8) !Token {
     var allocated_result = std.Io.Writer.Allocating.init(allocator);
     defer allocated_result.deinit();
 
@@ -139,8 +151,9 @@ fn get_token(allocator: std.mem.Allocator, io: std.Io, exchange_code_uri: []cons
     const response = try http_client.fetch(
         .{
             .location = .{
-                .uri = try std.Uri.parse(exchange_code_uri),
+                .uri = try std.Uri.parse(exchange_code_url),
             },
+            .payload = payload,
             .method = .POST,
             .extra_headers = headers,
             .response_writer = &allocated_result.writer,
