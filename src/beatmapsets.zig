@@ -274,18 +274,18 @@ pub const BeatmapsetSearch = struct {
             if (search_info.lang != .Any) {
                 try queries.append(
                     allocator,
-                    .{ .v = try str.from(u8, &language, @intFromEnum(search_info.lang)), .k = "l" },
+                    .{ .v = try str.from(u8, &language, @backingInt(search_info.lang)), .k = "l" },
                 );
             }
             if (search_info.genre != .Any) {
                 try queries.append(
                     allocator,
-                    .{ .v = try str.from(u8, &genre, @intFromEnum(search_info.genre)), .k = "g" },
+                    .{ .v = try str.from(u8, &genre, @backingInt(search_info.genre)), .k = "g" },
                 );
             }
             try queries.append(
                 allocator,
-                .{ .v = try str.from(u8, &mode, @intFromEnum(search_info.mode)), .k = "m" },
+                .{ .v = try str.from(u8, &mode, @backingInt(search_info.mode)), .k = "m" },
             );
 
             if (search_info.query) |query| try queries.append(
@@ -293,7 +293,7 @@ pub const BeatmapsetSearch = struct {
                 .{ .v = query, .k = "q" },
             );
 
-            modified_url = try http_ext.appendQuery(&buffer, path, queries.items);
+            modified_url = try http_ext.appendQueryToUrl(&buffer, path, queries.items);
         } else {
             modified_url = path;
         }

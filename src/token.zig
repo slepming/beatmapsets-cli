@@ -109,7 +109,7 @@ pub fn client_credentials_token(
 
     const _client_id = try std.fmt.allocPrint(allocator, "{d}", .{client_id});
 
-    const payload_query = try http_ext.appendQueryHttp(&payload_buffer, exchange_code_uri, &[_]http_ext.Query{
+    const payload_query = try http_ext.appendQueryToUrl(&payload_buffer, exchange_code_uri, &[_]http_ext.Query{
         .{ .v = _client_id, .k = "client_id" },
         .{ .v = client_secret, .k = "client_secret" },
         .{ .v = "client_credentials", .k = "grant_type" },

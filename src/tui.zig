@@ -48,7 +48,7 @@ pub const Model = struct {
         if (self.current_token == null) {
             self.current_token = Model.refreshToken(ctx.persistent_allocator, ctx.io) catch |err| {
                 Model.log("Refreshing token error {any}", .{err}, .Error);
-                self.menu_position = @enumFromInt(0);
+                self.menu_position = @fromBackingInt(@intCast(0));
                 return .none;
             };
         }
@@ -72,21 +72,21 @@ pub const Model = struct {
                     switch (k.key) {
                         .char => |c| switch (c) {
                             'q' => return .quit,
-                            'o' => self.menu_position = @enumFromInt(0),
+                            'o' => self.menu_position = @fromBackingInt(@intCast(0)),
                             's' => {
-                                self.menu_position = @enumFromInt(1);
+                                self.menu_position = @fromBackingInt(@intCast(1));
                                 self.searchBeatmapsets(ctx, null) catch |err| {
                                     Model.log("{any}", .{err}, .Error);
                                 };
                             },
                             'l' => {
-                                self.menu_position = @enumFromInt((@intFromEnum(self.menu_position) +% 1));
+                                self.menu_position = @fromBackingInt(@intCast((@backingInt(self.menu_position) +% 1)));
                                 if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx, null) catch |err| {
                                     Model.log("{any}", .{err}, .Error);
                                 };
                             },
                             'h' => {
-                                self.menu_position = @enumFromInt((@intFromEnum(self.menu_position) -% 1));
+                                self.menu_position = @fromBackingInt(@intCast((@backingInt(self.menu_position) -% 1)));
                                 if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx, null) catch |err| {
                                     Model.log("{any}", .{err}, .Error);
                                 };
@@ -135,7 +135,7 @@ pub const Model = struct {
                     },
                     .backspace => {},
                     .tab => {
-                        self.menu_position = @enumFromInt((@intFromEnum(self.menu_position) +% 1));
+                        self.menu_position = @fromBackingInt(@intCast((@backingInt(self.menu_position) +% 1)));
                         if (self.menu_position == .SearchBeatmapsets) self.searchBeatmapsets(ctx, null) catch |err| {
                             Model.log("{any}", .{err}, .Error);
                             return .quit;
@@ -214,7 +214,7 @@ pub const Model = struct {
         } else {
             self.current_token = Model.refreshToken(ctx.persistent_allocator, ctx.io) catch |err| {
                 Model.log("Token invalid", .{}, .Error);
-                self.menu_position = @enumFromInt(0);
+                self.menu_position = @fromBackingInt(@intCast(0));
                 return err;
             };
         }

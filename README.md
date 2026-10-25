@@ -1,4 +1,4 @@
-ZIG 0.16.0
+ZIG 0.17.0
 beatmapets-cli is wrapper around osu!api or it's you're pocket tui/cli tool.
 
 # Building
