@@ -60,6 +60,7 @@ fn listen(h: *AuthHandler, req: *httpz.Request, res: *httpz.Response) !void {
         res.body = "Missing code";
         return error.MissingCode;
     };
+        
     res.status = 200;
     res.header("Content-Type", "text/html; charset=utf-8");
     res.body =
@@ -83,15 +84,15 @@ fn listen(h: *AuthHandler, req: *httpz.Request, res: *httpz.Response) !void {
     var client_id_buf: [32]u8 = undefined;
     const client_id_str = try std.fmt.bufPrint(&client_id_buf, "{d}", .{h.client_id});
 
-    var redirect_uri_buf: [128]u8 = undefined;
-    const redirect_uri_str = try std.fmt.bufPrint(&redirect_uri_buf, "http://{s}:{d}", .{ localhost, h.port });
+    //var redirect_uri_buf: [128]u8 = undefined;
+    //const redirect_uri_str = try std.fmt.bufPrint(&redirect_uri_buf, "http://{s}:{d}", .{ localhost, h.port });
 
     const payload_query = try http_ext.appendQuery(&payload_buffer, &[_]http_ext.Query{
         .{ .k = "client_id", .v = client_id_str },
         .{ .k = "client_secret", .v = h.client_secret },
         .{ .k = "code", .v = code },
         .{ .k = "grant_type", .v = "authorization_code" },
-        .{ .k = "redirect_uri", .v = redirect_uri_str },
+        //.{ .k = "redirect_uri", .v = redirect_uri_str },
     }, 0);
 
     var exchange_code_uri_buffer: [256]u8 = undefined;
@@ -107,6 +108,9 @@ fn listen(h: *AuthHandler, req: *httpz.Request, res: *httpz.Response) !void {
     server.?.stop();
 }
 
+/// Client credentials authorization
+///
+/// See [client credentials authorization](https://osu.ppy.sh/docs/index.html#client-credentials-grant)
 pub fn client_credentials_token(
     allocator: std.mem.Allocator,
     io: std.Io,
@@ -148,12 +152,12 @@ fn get_token(allocator: std.mem.Allocator, io: std.Io, exchange_code_url: []cons
         },
     };
 
-    const response = try http_client.fetch(
+    const response = try http_client.fetch( // Finally result is infinity waiting
         .{
             .location = .{
                 .uri = try std.Uri.parse(exchange_code_url),
             },
-            .payload = payload,
+            .payload = payload[1..], // First element after appendQuery is '?'. To avoid invalid payload errors I leave only slice from first element to end
             .method = .POST,
             .extra_headers = headers,
             .response_writer = &allocated_result.writer,
