@@ -123,7 +123,8 @@ pub fn client_credentials_token(
 
     const exchange_code_url = try std.fmt.bufPrint(&exchange_code_uri_buffer, "{s}oauth/token", .{URI});
 
-    const _client_id = try std.fmt.allocPrint(allocator, "{d}", .{client_id});
+    var _client_id_buffer: [512]u8 = undefined;
+    const _client_id = try std.fmt.bufPrint(&_client_id_buffer, "{d}", .{client_id});
 
     const payload_query = try http_ext.appendQuery(&payload_buffer, &[_]http_ext.Query{
         .{ .v = _client_id, .k = "client_id" },
@@ -136,7 +137,7 @@ pub fn client_credentials_token(
 }
 
 fn get_token(allocator: std.mem.Allocator, io: std.Io, exchange_code_url: []const u8, payload: []const u8) !Token {
-    var allocated_result = std.Io.Writer.Allocating.init(allocator);
+    var allocated_result = std.Io.Writer.Allocating.init(allocator); // Writer will be deinit before the user receives token, lol
     defer allocated_result.deinit();
 
     var http_client = std.http.Client{ .io = io, .allocator = allocator };
