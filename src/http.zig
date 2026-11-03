@@ -85,7 +85,7 @@ pub fn queryEncode(buf: []u8, query: []const u8) std.fmt.BufPrintError![]const u
             buf[cursor] = '+';
             cursor += 1;
         } else {
-            buf[cursor] = query[cursor];
+            buf[cursor] = q;
             cursor += 1;
         }
     }

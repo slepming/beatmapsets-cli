@@ -114,16 +114,11 @@ pub const Model = struct {
                                 if (self.menu_position == .SearchBeatmapsets) {
                                     if (_area) |area| {
                                         if (!area.focused) {
-                                            var buf: [1024]u8 = undefined;
-                                            var writer_buf: [1024]u8 = undefined;
                                             const table_cursor_position_column = self.beatmapset_table.cursor_col;
                                             const table_cursor_position_row = self.beatmapset_table.cursor_row;
                                             const table_cursor_value = self.beatmapset_table.rows.items[table_cursor_position_row][table_cursor_position_column];
-                                            const encoded = std.base64.standard.Encoder.encode(&buf, table_cursor_value);
 
-                                            var writer = std.Io.File.stdout().writer(ctx.io, &writer_buf);
-                                            writer.interface.print("\x1b]52;c;{s}\x07", .{encoded}) catch |err| Model.log("{any}", .{err}, .Error);
-                                            writer.flush() catch return .quit;
+                                            osc52(table_cursor_value, ctx.io) catch return .quit;
                                         }
                                     }
                                 }
@@ -372,3 +367,16 @@ pub const Model = struct {
         }
     }
 };
+
+/// ASCII escape sequence to write text directly to the clipboard.
+///
+/// **If this sequence doesn't working, you should check terminal if terminal support it**
+fn osc52(text: []const u8, io: std.Io) !void { // tmux don't support OSC 52 on my system (ghostty + tmux)
+    var buf: [1024]u8 = undefined;
+    var writer_buf: [1024]u8 = undefined;
+    const encoded = std.base64.standard.Encoder.encode(&buf, text);
+
+    var writer = std.Io.File.stdout().writer(io, &writer_buf);
+    writer.interface.print("\x1b]52;c;{s}\x07", .{encoded}) catch |err| Model.log("{any}", .{err}, .Error);
+    try writer.flush();
+}
