@@ -344,33 +344,32 @@ test "search_beatmapset_authorized_request_without_options" {
     var writer = std.Io.Writer.Allocating.init(allocator);
     defer writer.deinit();
 
-    const tkn = env.get("OSU_API_TOKEN");
+    const client_secret = env.get("OSU_API_CLIENT_SECRET") orelse {
+        std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
+        return error.TokenUnavailable;
+    };
+
+    const _client_id = env.get("OSU_API_CLIENT_ID") orelse {
+        std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
+        return error.TokenUnavailable;
+    };
+
+    const client_id = try std.fmt.parseInt(u64, _client_id, 10);
+    const tkn = try authorization.client_credentials_token(allocator, io, client_id, client_secret);
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
 
-    if (tkn) |token| {
-        const structed_token = authorization.Token{
-            .access_token = token,
-            .token_type = "Bearer",
-            .expires_in = 0,
-            .refresh_token = null,
-        };
+    const response = try BeatmapsetSearch.request(
+        allocator,
+        &http_client,
+        &writer,
+        &tkn,
+        null,
+    );
+    defer response.deinit();
 
-        const response = try BeatmapsetSearch.request(
-            allocator,
-            &http_client,
-            &writer,
-            &structed_token,
-            null,
-        );
-        defer response.deinit();
-
-        if (response.value.beatmapsets) |beatmapsets| try std.testing.expectEqual(50, beatmapsets.len);
-    } else {
-        std.log.err("OSU_API_TOKEN variable is empty. For tests you need get token from osu api", .{});
-        return error.TokenUnavailable;
-    }
+    if (response.value.beatmapsets) |beatmapsets| try std.testing.expectEqual(50, beatmapsets.len);
 }
 
 test "search_beatmapset_authorized_request_with_options" {
@@ -383,41 +382,40 @@ test "search_beatmapset_authorized_request_with_options" {
     var writer = std.Io.Writer.Allocating.init(allocator);
     defer writer.deinit();
 
-    const tkn = env.get("OSU_API_TOKEN");
+    const client_secret = env.get("OSU_API_CLIENT_SECRET") orelse {
+        std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
+        return error.TokenUnavailable;
+    };
+
+    const _client_id = env.get("OSU_API_CLIENT_ID") orelse {
+        std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
+        return error.TokenUnavailable;
+    };
+
+    const client_id = try std.fmt.parseInt(u64, _client_id, 10);
+    const tkn = try authorization.client_credentials_token(allocator, io, client_id, client_secret);
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
 
-    if (tkn) |token| {
-        const structed_token = authorization.Token{
-            .access_token = token,
-            .token_type = "Bearer",
-            .expires_in = 0,
-            .refresh_token = null,
-        };
+    const options: BeatmapsetSearchQueryOptions = .{
+        .categ = .Loved,
+        .criteria = .Relevance,
+        .genre = .Metal,
+        .lang = .Russian,
+        .mode = .Osu,
+    };
 
-        const options: BeatmapsetSearchQueryOptions = .{
-            .categ = .Loved,
-            .criteria = .Relevance,
-            .genre = .Metal,
-            .lang = .Russian,
-            .mode = .Osu,
-        };
+    const response = try BeatmapsetSearch.request(
+        allocator,
+        &http_client,
+        &writer,
+        &tkn,
+        options,
+    );
+    defer response.deinit();
 
-        const response = try BeatmapsetSearch.request(
-            allocator,
-            &http_client,
-            &writer,
-            &structed_token,
-            options,
-        );
-        defer response.deinit();
-
-        if (response.value.beatmapsets) |beatmapsets| try std.testing.expect(beatmapsets.len > 0);
-    } else {
-        std.log.err("OSU_API_TOKEN variable is empty. For tests you need get token from osu api", .{});
-        return error.TokenUnavailable;
-    }
+    if (response.value.beatmapsets) |beatmapsets| try std.testing.expect(beatmapsets.len > 0);
 }
 
 test "receive_beatmap_by_id" {
@@ -429,33 +427,32 @@ test "receive_beatmap_by_id" {
     var writer = std.Io.Writer.Allocating.init(allocator);
     defer writer.deinit();
 
-    const tkn = env.get("OSU_API_TOKEN");
+    const client_secret = env.get("OSU_API_CLIENT_SECRET") orelse {
+        std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
+        return error.TokenUnavailable;
+    };
+
+    const _client_id = env.get("OSU_API_CLIENT_ID") orelse {
+        std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
+        return error.TokenUnavailable;
+    };
+
+    const client_id = try std.fmt.parseInt(u64, _client_id, 10);
+    const tkn = try authorization.client_credentials_token(allocator, io, client_id, client_secret);
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
 
-    if (tkn) |token| {
-        const structed_token = authorization.Token{
-            .access_token = token,
-            .token_type = "Bearer",
-            .expires_in = 0,
-            .refresh_token = null,
-        };
+    const beatmap = try Beatmap.getBeatmap(
+        allocator,
+        &http_client,
+        &writer,
+        &tkn,
+        33502,
+    );
+    defer beatmap.deinit();
 
-        const beatmap = try Beatmap.getBeatmap(
-            allocator,
-            &http_client,
-            &writer,
-            &structed_token,
-            33502,
-        );
-        defer beatmap.deinit();
-
-        try std.testing.expectEqual(8023, beatmap.value.beatmapset_id);
-    } else {
-        std.log.err("OSU_API_TOKEN variable is empty. For tests you need get token from osu api", .{});
-        return error.TokenUnavailable;
-    }
+    try std.testing.expectEqual(8023, beatmap.value.beatmapset_id);
 }
 
 test "some_requests_at_the_time" {
@@ -468,41 +465,40 @@ test "some_requests_at_the_time" {
     var env = try std.testing.environ.createMap(allocator);
     defer env.deinit();
 
-    const tkn = env.get("OSU_API_TOKEN");
+    const client_secret = env.get("OSU_API_CLIENT_SECRET") orelse {
+        std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
+        return error.TokenUnavailable;
+    };
+
+    const _client_id = env.get("OSU_API_CLIENT_ID") orelse {
+        std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
+        return error.TokenUnavailable;
+    };
+
+    const client_id = try std.fmt.parseInt(u64, _client_id, 10);
+    const tkn = try authorization.client_credentials_token(allocator, io, client_id, client_secret);
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
 
-    if (tkn) |token| {
-        const structed_token = authorization.Token{
-            .access_token = token,
-            .token_type = "Bearer",
-            .expires_in = 0,
-            .refresh_token = null,
-        };
+    const options: BeatmapsetSearchQueryOptions = .{
+        .categ = .Loved,
+        .criteria = .Relevance,
+        .genre = .Metal,
+        .lang = .Russian,
+        .mode = .Osu,
+    };
 
-        const options: BeatmapsetSearchQueryOptions = .{
-            .categ = .Loved,
-            .criteria = .Relevance,
-            .genre = .Metal,
-            .lang = .Russian,
-            .mode = .Osu,
-        };
-
-        for (0..3) |_| {
-            writer.clearRetainingCapacity();
-            const response = try BeatmapsetSearch.request(
-                allocator,
-                &http_client,
-                &writer,
-                &structed_token,
-                options,
-            );
-            defer response.deinit();
-            if (response.value.beatmapsets) |beatmapsets| try std.testing.expect(beatmapsets.len > 0);
-        }
-    } else {
-        std.log.err("OSU_API_TOKEN variable is empty. For tests you need get token from osu api", .{});
-        return error.TokenUnavailable;
+    for (0..3) |_| {
+        writer.clearRetainingCapacity();
+        const response = try BeatmapsetSearch.request(
+            allocator,
+            &http_client,
+            &writer,
+            &tkn,
+            options,
+        );
+        defer response.deinit();
+        if (response.value.beatmapsets) |beatmapsets| try std.testing.expect(beatmapsets.len > 0);
     }
 }

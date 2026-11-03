@@ -60,7 +60,7 @@ fn listen(h: *AuthHandler, req: *httpz.Request, res: *httpz.Response) !void {
         res.body = "Missing code";
         return error.MissingCode;
     };
-        
+
     res.status = 200;
     res.header("Content-Type", "text/html; charset=utf-8");
     res.body =
@@ -137,7 +137,7 @@ pub fn client_credentials_token(
 }
 
 fn get_token(allocator: std.mem.Allocator, io: std.Io, exchange_code_url: []const u8, payload: []const u8) !Token {
-    var allocated_result = std.Io.Writer.Allocating.init(allocator); // Writer will be deinit before the user receives token, lol
+    var allocated_result = std.Io.Writer.Allocating.init(allocator);
     defer allocated_result.deinit();
 
     var http_client = std.http.Client{ .io = io, .allocator = allocator };
@@ -153,7 +153,7 @@ fn get_token(allocator: std.mem.Allocator, io: std.Io, exchange_code_url: []cons
         },
     };
 
-    const response = try http_client.fetch( // Finally result is infinity waiting
+    const response = try http_client.fetch(
         .{
             .location = .{
                 .uri = try std.Uri.parse(exchange_code_url),
@@ -183,4 +183,29 @@ fn get_token(allocator: std.mem.Allocator, io: std.Io, exchange_code_url: []cons
     defer parsed.deinit();
 
     return parsed.value;
+}
+
+test "client_credentials_token_test" {
+    const allocator = std.testing.allocator;
+    const io = std.testing.io;
+    var env = try std.testing.environ.createMap(allocator);
+    defer env.deinit();
+
+    var writer = std.Io.Writer.Allocating.init(allocator);
+    defer writer.deinit();
+
+    const client_secret = env.get("OSU_API_CLIENT_SECRET") orelse {
+        std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
+        return error.TokenUnavailable;
+    };
+
+    const _client_id = env.get("OSU_API_CLIENT_ID") orelse {
+        std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
+        return error.TokenUnavailable;
+    };
+
+    const client_id = try std.fmt.parseInt(u64, _client_id, 10);
+
+    const token = try client_credentials_token(allocator, io, client_id, client_secret);
+    try std.testing.expect(token.access_token.len > 0);
 }

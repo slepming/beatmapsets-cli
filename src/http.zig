@@ -75,6 +75,7 @@ pub fn appendQueryToUrl(buf: []u8, url_raw: []const u8, kv: []const Query) std.f
     );
 }
 
+/// Replace all SPACE charaters with '+'
 pub fn queryEncode(buf: []u8, query: []const u8) std.fmt.BufPrintError![]const u8 {
     if (buf.len < query.len) return std.fmt.BufPrintError.NoSpaceLeft;
     var cursor: u32 = 0;
@@ -87,8 +88,6 @@ pub fn queryEncode(buf: []u8, query: []const u8) std.fmt.BufPrintError![]const u
             buf[cursor] = query[cursor];
             cursor += 1;
         }
-
-        std.debug.print("{s}\n", .{buf[0..cursor]});
     }
 
     return buf[0..cursor];
