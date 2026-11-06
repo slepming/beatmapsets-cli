@@ -328,7 +328,13 @@ pub const Model = struct {
         const client_id: []const u8 = std.mem.span(client_id_raw);
         const client_secret: []const u8 = std.mem.span(client_secret_raw);
 
-        return try main.authorization(io, allocator, client_secret, try std.fmt.parseInt(u64, client_id, 10), false);
+        return try main.authorization(
+            io,
+            allocator,
+            client_secret,
+            try std.fmt.parseInt(u64, client_id, 10),
+            false,
+        );
     }
 
     fn refreshTokenTui(self: *Model, alloc: std.mem.Allocator, w: u16, h: u16) ![]const u8 {

@@ -34,7 +34,7 @@ pub fn main(init: std.process.Init) !void {
         .help = "Enable verbose output",
     });
 
-    if (config.disable_tui) {
+    if (config.enable_tui) {
         try parser.addFlag("tui", .{
             .help = "Enable tui client",
         });
@@ -91,7 +91,7 @@ pub fn main(init: std.process.Init) !void {
             try get_user(io, allocator, user, &token);
         }
     } else {
-        if (config.disable_tui) {
+        if (config.enable_tui) {
             const zz = @import("zigzag");
             const tui = @import("tui.zig");
             var program = zz.Program(tui.Model).initWithOptions(allocator, io, init.environ_map, .{ .fps = FPS, .title = NAME });
