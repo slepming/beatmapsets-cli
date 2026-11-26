@@ -298,28 +298,27 @@ test "get_user_by_username" {
     var writer = std.Io.Writer.Allocating.init(allocator);
     defer writer.deinit();
 
-    const tkn = env.get("OSU_API_TOKEN");
+    const client_secret = env.get("OSU_API_CLIENT_SECRET") orelse {
+        std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
+        return error.TokenUnavailable;
+    };
+
+    const _client_id = env.get("OSU_API_CLIENT_ID") orelse {
+        std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
+        return error.TokenUnavailable;
+    };
+        
+    const client_id = try std.fmt.parseInt(u64, _client_id, 10);
+    const tkn = try auth.client_credentials_token(allocator, io, client_id, client_secret);
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
 
-    if (tkn) |token| {
-        const structed_token = auth.Token{
-            .access_token = token,
-            .token_type = "Bearer",
-            .expires_in = 0,
-            .refresh_token = null,
-        };
+    const response = try User.get_user(allocator, &http_client, &writer, &tkn, .{ .username = "slepming" });
+    defer response.deinit();
+    const user = response.value;
 
-        const response = try User.get_user(allocator, &http_client, &writer, &structed_token, .{ .username = "slepming" });
-        defer response.deinit();
-        const user = response.value;
-
-        try std.testing.expectEqual(29155149, user.id);
-    } else {
-        std.log.err("OSU_API_TOKEN variable is empty. For tests you need get token from osu api", .{});
-        return error.TokenUnavailable;
-    }
+    try std.testing.expectEqual(29155149, user.id);
 }
 
 test "get_user_by_id" {
