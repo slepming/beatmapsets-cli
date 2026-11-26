@@ -114,6 +114,7 @@ fn listen(h: *AuthHandler, req: *httpz.Request, res: *httpz.Response) !void {
 pub fn client_credentials_token(
     allocator: std.mem.Allocator,
     io: std.Io,
+    allocated_memory: std.Io.Writer.Allocating,
     client_id: u64,
     client_secret: []const u8,
 ) !Token {
@@ -133,12 +134,17 @@ pub fn client_credentials_token(
         .{ .v = "public", .k = "scope" },
     }, 0);
 
-    return get_token(allocator, io, exchange_code_url, payload_query);
+    return get_token(allocator, io, allocated_memory, exchange_code_url, payload_query);
 }
 
-fn get_token(allocator: std.mem.Allocator, io: std.Io, exchange_code_url: []const u8, payload: []const u8) !Token {
-    var allocated_result = std.Io.Writer.Allocating.init(allocator);
-    defer allocated_result.deinit();
+fn get_token(
+    allocator: std.mem.Allocator,
+    io: std.Io,
+    allocated_memory: std.Io.Writer.Allocating,
+    exchange_code_url: []const u8,
+    payload: []const u8,
+) !Token {
+    var allocated_result = allocated_memory;
 
     var http_client = std.http.Client{ .io = io, .allocator = allocator };
 
@@ -206,6 +212,9 @@ test "client_credentials_token_test" {
 
     const client_id = try std.fmt.parseInt(u64, _client_id, 10);
 
-    const token = try client_credentials_token(allocator, io, client_id, client_secret);
+    var allocated = std.Io.Writer.Allocating.init(allocator);
+    defer allocated.deinit();
+
+    const token = try client_credentials_token(allocator, io, allocated, client_id, client_secret);
     try std.testing.expect(token.access_token.len > 0);
 }

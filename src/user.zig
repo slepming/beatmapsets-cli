@@ -307,9 +307,13 @@ test "get_user_by_username" {
         std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
         return error.TokenUnavailable;
     };
-        
+
     const client_id = try std.fmt.parseInt(u64, _client_id, 10);
-    const tkn = try auth.client_credentials_token(allocator, io, client_id, client_secret);
+
+    var allocated = std.Io.Writer.Allocating.init(allocator);
+    defer allocated.deinit();
+
+    const tkn = try auth.client_credentials_token(allocator, io, allocated, client_id, client_secret);
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
@@ -341,7 +345,10 @@ test "get_user_by_id" {
     };
 
     const client_id = try std.fmt.parseInt(u64, _client_id, 10);
-    const tkn = try auth.client_credentials_token(allocator, io, client_id, client_secret);
+    var allocated = std.Io.Writer.Allocating.init(allocator);
+    defer allocated.deinit();
+
+    const tkn = try auth.client_credentials_token(allocator, io, allocated, client_id, client_secret);
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
