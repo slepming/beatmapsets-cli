@@ -310,10 +310,10 @@ test "get_user_by_username" {
 
     const client_id = try std.fmt.parseInt(u64, _client_id, 10);
 
-    var allocated = std.Io.Writer.Allocating.init(allocator);
-    defer allocated.deinit();
+    const parsed_token = try auth.client_credentials_token(allocator, io, client_id, client_secret);
+    defer parsed_token.deinit();
 
-    const tkn = try auth.client_credentials_token(allocator, io, allocated, client_id, client_secret);
+    const tkn = parsed_token.value;
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
@@ -345,10 +345,11 @@ test "get_user_by_id" {
     };
 
     const client_id = try std.fmt.parseInt(u64, _client_id, 10);
-    var allocated = std.Io.Writer.Allocating.init(allocator);
-    defer allocated.deinit();
 
-    const tkn = try auth.client_credentials_token(allocator, io, allocated, client_id, client_secret);
+    const parsed_token = try auth.client_credentials_token(allocator, io, client_id, client_secret);
+    defer parsed_token.deinit();
+
+    const tkn = parsed_token.value;
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();

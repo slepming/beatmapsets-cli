@@ -114,10 +114,9 @@ fn listen(h: *AuthHandler, req: *httpz.Request, res: *httpz.Response) !void {
 pub fn client_credentials_token(
     allocator: std.mem.Allocator,
     io: std.Io,
-    allocated_memory: std.Io.Writer.Allocating,
     client_id: u64,
     client_secret: []const u8,
-) !Token {
+) !std.json.Parsed(Token) {
     var payload_buffer: [1024]u8 = undefined;
 
     var exchange_code_uri_buffer: [256]u8 = undefined;
@@ -134,19 +133,20 @@ pub fn client_credentials_token(
         .{ .v = "public", .k = "scope" },
     }, 0);
 
-    return get_token(allocator, io, allocated_memory, exchange_code_url, payload_query);
+    return get_token(allocator, io, exchange_code_url, payload_query);
 }
 
 fn get_token(
     allocator: std.mem.Allocator,
     io: std.Io,
-    allocated_memory: std.Io.Writer.Allocating,
     exchange_code_url: []const u8,
     payload: []const u8,
-) !Token {
-    var allocated_result = allocated_memory;
+) !std.json.Parsed(Token) {
+    var allocated_result = std.Io.Writer.Allocating.init(allocator);
+    defer allocated_result.deinit();
 
     var http_client = std.http.Client{ .io = io, .allocator = allocator };
+    defer http_client.deinit();
 
     const headers = &[_]std.http.Header{
         .{
@@ -184,15 +184,18 @@ fn get_token(
         result_slice,
         .{
             .ignore_unknown_fields = true,
+            .allocate = .alloc_always,
         },
     );
-    defer parsed.deinit();
 
-    return parsed.value;
+    return parsed;
 }
 
 test "client_credentials_token_test" {
-    const allocator = std.testing.allocator;
+    var safe_allocator = std.heap.SafeAllocator.init(std.heap.page_allocator, .{ .stack_trace_frames = 64 });
+    defer _ = safe_allocator.deinit();
+
+    const allocator = safe_allocator.allocator();
     const io = std.testing.io;
     var env = try std.testing.environ.createMap(allocator);
     defer env.deinit();
@@ -212,9 +215,10 @@ test "client_credentials_token_test" {
 
     const client_id = try std.fmt.parseInt(u64, _client_id, 10);
 
-    var allocated = std.Io.Writer.Allocating.init(allocator);
-    defer allocated.deinit();
+    const parsed_token = try client_credentials_token(allocator, io, client_id, client_secret);
+    defer parsed_token.deinit();
 
-    const token = try client_credentials_token(allocator, io, allocated, client_id, client_secret);
+    const token = parsed_token.value;
+
     try std.testing.expect(token.access_token.len > 0);
 }

@@ -355,10 +355,11 @@ test "search_beatmapset_authorized_request_without_options" {
     };
 
     const client_id = try std.fmt.parseInt(u64, _client_id, 10);
-    var allocated = std.Io.Writer.Allocating.init(allocator);
-    defer allocated.deinit();
 
-    const tkn = try authorization.client_credentials_token(allocator, io, allocated, client_id, client_secret);
+    const parsed_token = try authorization.client_credentials_token(allocator, io, client_id, client_secret);
+    defer parsed_token.deinit();
+
+    const tkn = parsed_token.value;
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
@@ -396,10 +397,11 @@ test "search_beatmapset_authorized_request_with_options" {
     };
 
     const client_id = try std.fmt.parseInt(u64, _client_id, 10);
-    var allocated = std.Io.Writer.Allocating.init(allocator);
-    defer allocated.deinit();
 
-    const tkn = try authorization.client_credentials_token(allocator, io, allocated, client_id, client_secret);
+    const parsed_token = try authorization.client_credentials_token(allocator, io, client_id, client_secret);
+    defer parsed_token.deinit();
+
+    const tkn = parsed_token.value;
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
@@ -444,10 +446,11 @@ test "receive_beatmap_by_id" {
     };
 
     const client_id = try std.fmt.parseInt(u64, _client_id, 10);
-    var allocated = std.Io.Writer.Allocating.init(allocator);
-    defer allocated.deinit();
 
-    const tkn = try authorization.client_credentials_token(allocator, io, allocated, client_id, client_secret);
+    const parsed_token = try authorization.client_credentials_token(allocator, io, client_id, client_secret);
+    defer parsed_token.deinit();
+
+    const tkn = parsed_token.value;
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
@@ -485,10 +488,11 @@ test "some_requests_at_the_time" {
     };
 
     const client_id = try std.fmt.parseInt(u64, _client_id, 10);
-    var allocated = std.Io.Writer.Allocating.init(allocator);
-    defer allocated.deinit();
 
-    const tkn = try authorization.client_credentials_token(allocator, io, allocated, client_id, client_secret);
+    const parsed_token = try authorization.client_credentials_token(allocator, io, client_id, client_secret);
+    defer parsed_token.deinit();
+
+    const tkn = parsed_token.value;
 
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
