@@ -63,7 +63,8 @@ pub fn main(init: std.process.Init) !void {
         code_grant = grant;
     }
 
-    var token: api.token.Token = undefined;
+    var parsed_token: std.json.Parsed(api.token.Token) = undefined;
+    defer parsed_token.deinit();
 
     const client_id_raw = init.environ_map.get("OSU_API_CLIENT_ID") orelse {
         std.log.err("Environment variable 'OSU_API_CLIENT_ID' is null", .{});
@@ -77,7 +78,9 @@ pub fn main(init: std.process.Init) !void {
         return error.AuthorizationError;
     };
 
-    token = try authorization(io, allocator, client_secret, client_id, code_grant);
+    parsed_token = try authorization(io, allocator, client_secret, client_id, code_grant);
+
+    var token = parsed_token.value;
 
     const tui_enabled = result.getBool("tui") orelse false;
 
@@ -107,9 +110,6 @@ pub fn main(init: std.process.Init) !void {
 fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8, token: *api.token.Token) !void {
     std.log.info("QUERY: {s}", .{q});
 
-    var writer = std.Io.Writer.Allocating.init(allocator);
-    defer writer.deinit();
-
     var table = tables.Table.init(allocator);
     defer table.deinit();
 
@@ -124,7 +124,6 @@ fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8,
     const beatmapset_s = try api.beatmapsets.BeatmapsetSearch.request(
         allocator,
         &http_client,
-        &writer,
         token,
         .{ .query = try api.http_ext.queryEncode(&query_buffer, q) },
     );
@@ -148,15 +147,11 @@ fn search_beatmapsets_f(io: std.Io, allocator: std.mem.Allocator, q: []const u8,
 }
 
 fn get_user(io: std.Io, allocator: std.mem.Allocator, id: i64, token: *api.token.Token) !void {
-    var writer = std.Io.Writer.Allocating.init(allocator);
-    defer writer.deinit();
-
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
     const user = try api.user.User.get_user(
         allocator,
         &http_client,
-        &writer,
         token,
         .{ .id = @intCast(id) },
     );
@@ -164,7 +159,7 @@ fn get_user(io: std.Io, allocator: std.mem.Allocator, id: i64, token: *api.token
     std.log.info("{s}", .{user.value.username});
 }
 
-pub fn authorization(io: std.Io, allocator: std.mem.Allocator, client_secret: []const u8, client_id: u64, authorization_type: bool) !api.token.Token {
+pub fn authorization(io: std.Io, allocator: std.mem.Allocator, client_secret: []const u8, client_id: u64, authorization_type: bool) !std.json.Parsed(api.token.Token) {
     if (authorization_type) {
         return api.token.auth_client(io, allocator, client_secret, client_id, PORT, "public");
     }

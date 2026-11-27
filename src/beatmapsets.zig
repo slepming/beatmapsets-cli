@@ -107,7 +107,7 @@ pub const Beatmap = struct {
     /// Returns beatmap by beatmap(not beatmapset id) id
     ///
     /// See also [Beatmap](https://osu.ppy.sh/wiki/en/Beatmap)
-    pub fn getBeatmap(allocator: std.mem.Allocator, client: *std.http.Client, writer: *std.Io.Writer.Allocating, tkn: *const authorization.Token, id: u32) !std.json.Parsed(Beatmap) {
+    pub fn getBeatmap(allocator: std.mem.Allocator, client: *std.http.Client, tkn: *const authorization.Token, id: u32) !std.json.Parsed(Beatmap) {
         const path = "https://osu.ppy.sh/api/v2/beatmaps/";
         var modified_url: []const u8 = undefined;
         var buffer: [1024]u8 = undefined;
@@ -142,7 +142,6 @@ pub const Beatmap = struct {
         modified_url = try std.fmt.bufPrint(&buffer, "{s}{}", .{ path, id });
 
         const value = try http_ext.fetch(Beatmap, modified_url, headers, .GET, .{
-            .writer = writer,
             .alloc = allocator,
             .client = client,
         });
@@ -220,7 +219,6 @@ pub const BeatmapsetSearch = struct {
     pub fn request(
         allocator: std.mem.Allocator,
         client: *std.http.Client,
-        writer: *std.Io.Writer.Allocating,
         tkn: *const authorization.Token,
         search: ?BeatmapsetSearchQueryOptions,
     ) !std.json.Parsed(BeatmapsetSearch) {
@@ -301,7 +299,6 @@ pub const BeatmapsetSearch = struct {
         const value = try http_ext.fetch(BeatmapsetSearch, modified_url, headers, .GET, .{
             .alloc = allocator,
             .client = client,
-            .writer = writer,
         });
 
         return value;
@@ -310,8 +307,6 @@ pub const BeatmapsetSearch = struct {
 
 test "beatmapset_unauthorized_requests" {
     const allocator = std.testing.allocator;
-    var writer = std.Io.Writer.Allocating.init(allocator);
-    defer writer.deinit();
 
     var threaded = std.Io.Threaded.init(allocator, .{});
     var client = std.http.Client{
@@ -327,7 +322,6 @@ test "beatmapset_unauthorized_requests" {
         BeatmapsetSearch.request(
             allocator,
             &client,
-            &writer,
             &tkn,
             null,
         ),
@@ -340,9 +334,6 @@ test "search_beatmapset_authorized_request_without_options" {
     const io = std.testing.io;
     var env = try std.testing.environ.createMap(allocator);
     defer env.deinit();
-
-    var writer = std.Io.Writer.Allocating.init(allocator);
-    defer writer.deinit();
 
     const client_secret = env.get("OSU_API_CLIENT_SECRET") orelse {
         std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
@@ -367,7 +358,6 @@ test "search_beatmapset_authorized_request_without_options" {
     const response = try BeatmapsetSearch.request(
         allocator,
         &http_client,
-        &writer,
         &tkn,
         null,
     );
@@ -382,9 +372,6 @@ test "search_beatmapset_authorized_request_with_options" {
     const io = std.testing.io;
     var env = try std.testing.environ.createMap(allocator);
     defer env.deinit();
-
-    var writer = std.Io.Writer.Allocating.init(allocator);
-    defer writer.deinit();
 
     const client_secret = env.get("OSU_API_CLIENT_SECRET") orelse {
         std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
@@ -417,7 +404,6 @@ test "search_beatmapset_authorized_request_with_options" {
     const response = try BeatmapsetSearch.request(
         allocator,
         &http_client,
-        &writer,
         &tkn,
         options,
     );
@@ -431,9 +417,6 @@ test "receive_beatmap_by_id" {
     const io = std.testing.io;
     var env = try std.testing.environ.createMap(allocator);
     defer env.deinit();
-
-    var writer = std.Io.Writer.Allocating.init(allocator);
-    defer writer.deinit();
 
     const client_secret = env.get("OSU_API_CLIENT_SECRET") orelse {
         std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
@@ -458,7 +441,6 @@ test "receive_beatmap_by_id" {
     const beatmap = try Beatmap.getBeatmap(
         allocator,
         &http_client,
-        &writer,
         &tkn,
         33502,
     );
@@ -469,9 +451,6 @@ test "receive_beatmap_by_id" {
 
 test "some_requests_at_the_time" {
     const allocator = std.testing.allocator;
-
-    var writer = std.Io.Writer.Allocating.init(allocator);
-    defer writer.deinit();
 
     const io = std.testing.io;
     var env = try std.testing.environ.createMap(allocator);
@@ -506,11 +485,9 @@ test "some_requests_at_the_time" {
     };
 
     for (0..3) |_| {
-        writer.clearRetainingCapacity();
         const response = try BeatmapsetSearch.request(
             allocator,
             &http_client,
-            &writer,
             &tkn,
             options,
         );

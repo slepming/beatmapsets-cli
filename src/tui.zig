@@ -9,7 +9,7 @@ const LogLevel = enum { Error, Info };
 pub const Model = struct {
     menu_position: Menu,
     beatmapset_table: zz.components.DataTable,
-    current_token: ?authorization.Token = null,
+    current_token: ?std.json.Parsed(authorization.Token) = null,
     error_limit: u8 = 3,
     areas: std.StringHashMap(zz.components.TextArea),
     writer_alloc: std.Io.Writer.Allocating,
@@ -161,14 +161,14 @@ pub const Model = struct {
     }
 
     fn searchBeatmapsets(self: *Model, ctx: *zz.Context, _query: ?[]const u8) !void {
-        self.writer_alloc.clearRetainingCapacity();
         table_rows.clearAndFree(ctx.allocator);
 
         var http_client = std.http.Client{ .allocator = ctx.allocator, .io = ctx.io };
         defer http_client.deinit();
 
-        if (self.current_token) |token| {
-            const response = main.api.beatmapsets.BeatmapsetSearch.request(ctx.allocator, &http_client, &self.writer_alloc, &token, if (_query) |query| .{ .query = query } else null) catch |err| {
+        if (self.current_token) |p_token| {
+            const token = p_token.value;
+            const response = main.api.beatmapsets.BeatmapsetSearch.request(ctx.allocator, &http_client, &token, if (_query) |query| .{ .query = query } else null) catch |err| {
                 Model.log("{s}: {}", .{ "Search beatmapset request error", err }, .Error);
                 return err;
             };
@@ -310,7 +310,7 @@ pub const Model = struct {
     fn refreshToken(
         allocator: std.mem.Allocator,
         io: std.Io,
-    ) !authorization.Token {
+    ) !std.json.Parsed(authorization.Token) {
         return try Model.refreshTokenEnv(allocator, io);
     }
 
@@ -318,7 +318,7 @@ pub const Model = struct {
     fn refreshTokenEnv(
         allocator: std.mem.Allocator,
         io: std.Io,
-    ) !authorization.Token {
+    ) !std.json.Parsed(authorization.Token) {
         var http_client = std.http.Client{ .allocator = allocator, .io = io };
         defer http_client.deinit();
 

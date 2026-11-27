@@ -7,7 +7,7 @@ const localhost = "127.0.0.1";
 const URI = "https://osu.ppy.sh/";
 
 const AuthHandler = struct {
-    code: ?Token = null,
+    code: ?std.json.Parsed(Token) = null,
     client_id: u64,
     client_secret: []const u8,
     port: u16,
@@ -18,7 +18,7 @@ const AuthHandler = struct {
 /// Token structure from osu API v2
 pub const Token = struct { token_type: []const u8, expires_in: u32, access_token: []const u8, refresh_token: ?[]const u8 = null };
 
-pub fn auth_client(io: std.Io, allocator: std.mem.Allocator, client_secret: []const u8, client_id: u64, port: u16, scope: []const u8) !Token {
+pub fn auth_client(io: std.Io, allocator: std.mem.Allocator, client_secret: []const u8, client_id: u64, port: u16, scope: []const u8) !std.json.Parsed(Token) {
     std.log.info(
         "open in browser: {s}oauth/authorize?client_id={d}&redirect_uri=http://{s}:{d}&response_type=code&scope={s}&state=randomval",
         .{ URI, client_id, localhost, port, scope },

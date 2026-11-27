@@ -231,7 +231,7 @@ pub const User = struct {
     unread_pm_count: ?u32 = null,
     session_verified: ?bool = null,
 
-    pub fn get_user(allocator: std.mem.Allocator, client: *std.http.Client, writer: *std.Io.Writer.Allocating, tkn: *const auth.Token, user: UserOptions) !std.json.Parsed(User) {
+    pub fn get_user(allocator: std.mem.Allocator, client: *std.http.Client, tkn: *const auth.Token, user: UserOptions) !std.json.Parsed(User) {
         const path = "https://osu.ppy.sh/api/v2/users/";
         var modified_url: []const u8 = undefined;
         var buffer: [1024]u8 = undefined;
@@ -280,7 +280,6 @@ pub const User = struct {
         } else return error.usernameAndIdEqualsNull;
 
         const value = try http_ext.fetch(User, modified_url, headers, .GET, .{
-            .writer = writer,
             .alloc = allocator,
             .client = client,
         });
@@ -295,9 +294,6 @@ test "get_user_by_username" {
     var env = try std.testing.environ.createMap(allocator);
     defer env.deinit();
 
-    var writer = std.Io.Writer.Allocating.init(allocator);
-    defer writer.deinit();
-
     const client_secret = env.get("OSU_API_CLIENT_SECRET") orelse {
         std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
         return error.TokenUnavailable;
@@ -318,7 +314,7 @@ test "get_user_by_username" {
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
 
-    const response = try User.get_user(allocator, &http_client, &writer, &tkn, .{ .username = "slepming" });
+    const response = try User.get_user(allocator, &http_client, &tkn, .{ .username = "slepming" });
     defer response.deinit();
     const user = response.value;
 
@@ -331,9 +327,6 @@ test "get_user_by_id" {
     var env = try std.testing.environ.createMap(allocator);
     defer env.deinit();
 
-    var writer = std.Io.Writer.Allocating.init(allocator);
-    defer writer.deinit();
-
     const client_secret = env.get("OSU_API_CLIENT_SECRET") orelse {
         std.log.err("OSU_API_CLIENT_SECRET or OSU_API_CLIENT_ID variables is empty", .{});
         return error.TokenUnavailable;
@@ -354,7 +347,7 @@ test "get_user_by_id" {
     var http_client = std.http.Client{ .allocator = allocator, .io = io };
     defer http_client.deinit();
 
-    const response = try User.get_user(allocator, &http_client, &writer, &tkn, .{ .id = 29155149 });
+    const response = try User.get_user(allocator, &http_client, &tkn, .{ .id = 29155149 });
     defer response.deinit();
     const user = response.value;
 

@@ -10,7 +10,7 @@ pub const HttpStatusError = error{ UnhandledResponseStatus, Unauthorization };
 
 pub const Query = struct { k: []const u8, v: []const u8 };
 
-pub const FetchMem = struct { alloc: std.mem.Allocator, client: *std.http.Client, writer: *std.Io.Writer.Allocating };
+pub const FetchMem = struct { alloc: std.mem.Allocator, client: *std.http.Client };
 
 /// Append query to base url with url size value.
 ///
@@ -102,8 +102,8 @@ pub fn fetch(
 ) !std.json.Parsed(T) {
     const uri = try std.Uri.parse(url);
 
-    var result = fetchOptions.writer;
-    //defer result.deinit();
+    var result = std.Io.Writer.Allocating.init(fetchOptions.alloc);
+    defer result.deinit();
 
     const response = try fetchOptions.client.fetch(.{
         .location = .{
@@ -131,6 +131,7 @@ pub fn fetch(
         result_slice,
         .{
             .ignore_unknown_fields = true,
+            .allocate = .alloc_always,
         },
     ) catch |e| {
         std.debug.print("{s}", .{result_slice});
